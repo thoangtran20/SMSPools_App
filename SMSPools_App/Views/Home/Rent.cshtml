@@ -1,0 +1,159 @@
+﻿@model SmsAccountConfig
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-4">
+            <h2>Rent Number</h2>
+            <form asp-action="RentNumber" asp-controller="Rent" method="post">
+                <input type="hidden" name="ApiKey" value="@Model.ApiKey" />
+                <input type="hidden" id="accountId" name="id" value="@Model.Id" />
+                <div class="form-group mt-3">
+                    <label>Country</label>
+                    <input type="text" id="countryCode" value="1" class="form-control" readonly />
+                </div>
+                <div class="form-group mt-3">
+                    <label>Service</label>
+                    <input type="text" id="serviceId" value="828" class="form-control" readonly />
+                </div>
+                <button type="submit" id="rentBtn" class="btn btn-primary mt-4">Rent Number</button>
+            </form>
+
+            <div id="phoneSection" style="margin-top: 90px; display: none">
+                <label>Phone Number:</label>
+                <input type="text" id="phoneNumber" readonly class="form-control" />
+                <button id="resendBtn" class="btn btn-warning mt-2">Resend Code</button>
+                <button id="getOtpBtn" class="btn btn-success mt-2">Get OTP</button>
+
+                <div class="mt-3">
+                    <strong>OTP:</strong> <span id="otpDisplay"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-1"></div>
+
+        <div class="col-md-7">
+            <h3>Rented Numbers</h3>
+            <table class="table table-bordered mt-3">
+                <thead class="thead-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Phone</th>
+                        <th>Order Code</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="rentedNumbersTable">
+                    <tr>
+                        <td>0921332112</td>
+                        <td>fđsf</td>
+                        <td>sdfsd</td>
+                        <td>sdfsdf</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="">Refund</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>0921332112</td>
+                        <td>fđsf</td>
+                        <td>sdfsd</td>
+                        <td>sdfsdf</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="">Refund</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>0921332112</td>
+                        <td>fđsf</td>
+                        <td>sdfsd</td>
+                        <td>sdfsdf</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="">Refund</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+
+             $("form").on("submit", function (e) {
+                e.preventDefault(); // Prevent form submission
+                const id = $("#accountId").val().trim();
+                console.log("AccountId:", id);
+
+                $.post('@Url.Action("RentNumber", "Rent")', { id: id }, function (res) {
+                    if (res.success) {
+                        $("#phoneNumber").val(res.phoneNumber);
+                        $("#phoneSection").show();
+
+                        console.log("RentNumber response:", res);
+                        $("#getOtpBtn").data("order_code", res.orderCode);
+                        // $("#resendBtn").data("phone", res.phoneNumber);
+                    } else {
+                        alert("Error: " + res.message);
+                    }
+                });
+            });
+
+            $("#getOtpBtn").on("click", function() {
+                const id = $("#accountId").val().trim();
+                const orderCode = $(this).data("order_code");
+
+                console.log("Sending orderCode to server:", orderCode);
+
+                startCountdown();
+
+                $.post('@Url.Action("GetOtp", "Rent")', { id: id, orderCode: orderCode }, function (res) 
+                {
+                    if (res.success && res.otp) {
+                        clearInterval(countdownInterval);
+                        $("#otpDisplay").text(res.otp);
+                    } else {
+                        $("#otpDisplay").text("OTP not available, system will try again.");
+                    }
+                });
+            });
+
+            let countdownInterval;
+            let countdown = 30;
+
+            function startCountdown() {
+                clearInterval(countdownInterval);
+                countdown = 30;
+                $("#otpDisplay").text("Waiting for OTP... (" + countdown + "s)");
+                countdownInterval = setInterval(() => {
+                     countdown--;
+                    if (countdown > 0) {
+                        $("#otpDisplay").text("Waiting for OTP... (" + countdown + "s)");
+                    } else {
+                        clearInterval(countdownInterval);
+                        $("#otpDisplay").text("Failed to get OTP. Please try again!!");
+                    }
+                }, 1000);
+            }
+
+             $("#resendBtn").on("click", function() {
+                const id = $("#accountId").val().trim();
+                const orderCode = $("#getOtpBtn").data("order_code");
+
+                $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderCode: orderCode }, function (res)
+                {
+                    if (res.success) {
+                        alert("Resent successfully");
+                    } else {
+                        alert("Failed to resend code");
+                    }
+                });
+            });
+
+        });
+    </script>
+}

@@ -1,0 +1,35 @@
+﻿@model List<SMSPools_App.Models.SmsAccountConfig>
+
+<div class="text-center">
+    <h1 class="display-4">Sineline Code</h1>
+    <p>Available Servers</p>
+</div>
+
+@* <h2>Thuê số mới</h2>
+<form asp-action="RentNumber" method="post">
+    <label>Service:</label>
+    <input type="text" name="service" placeholder="facebook / google..." required />
+    <label>Country:</label>
+    <input type="text" name="country" placeholder="us / vn / ru..." required />
+    <button type="submit">Thuê số</button>
+</form>
+
+ *@
+@if (Model != null && Model.Any())
+{
+    Console.WriteLine(Model);
+    foreach (var acc in Model)
+    {
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">@acc.Name</h5>
+                <p class="card-text">Description of Server @acc.Id</p>
+                <a href="@Url.Action("Rent", "Home", new { id = acc.Id })" class="btn btn-primary">View Details</a>
+            </div>
+        </div>
+    }
+}
+else
+{
+    <p>No available accounts.</p>
+}
