@@ -1,20 +1,5 @@
 ﻿@model List<SMSPools_App.Models.SmsAccountConfig>
 
-<div class="text-center">
-    <h1 class="display-4">Sineline Code</h1>
-    <p>Available Servers</p>
-</div>
-
-@* <h2>Thuê số mới</h2>
-<form asp-action="RentNumber" method="post">
-    <label>Service:</label>
-    <input type="text" name="service" placeholder="facebook / google..." required />
-    <label>Country:</label>
-    <input type="text" name="country" placeholder="us / vn / ru..." required />
-    <button type="submit">Thuê số</button>
-</form>
-
- *@
 @if (Model != null && Model.Any())
 {
     Console.WriteLine(Model);

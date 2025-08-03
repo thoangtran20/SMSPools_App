@@ -7,7 +7,10 @@ namespace SMSPools_App.Models
 		[JsonPropertyName("id")]
 		public int Id { get; set; }
 
-		[JsonPropertyName("order_id")]
+		[JsonPropertyName("order_id")] // rent number
+		public string? OrderId { get; set; }
+
+		[JsonPropertyName("order_code")] // get order
 		public string? OrderCode { get; set; }
 
 		[JsonPropertyName("phonenumber")]

@@ -1,12 +1,12 @@
-﻿@model SmsAccountConfig
+﻿@model RentNumberViewModel
 
-<div class="container mt-5">
+<div class="container">
     <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <h2>Rent Number</h2>
             <form asp-action="RentNumber" asp-controller="Rent" method="post">
-                <input type="hidden" name="ApiKey" value="@Model.ApiKey" />
-                <input type="hidden" id="accountId" name="id" value="@Model.Id" />
+                <input type="hidden" name="ApiKey" value="@Model.Account.ApiKey" />
+                <input type="hidden" id="accountId" name="id" value="@Model.Account.Id" />
                 <div class="form-group mt-3">
                     <label>Country</label>
                     <input type="text" id="countryCode" value="1" class="form-control" readonly />
@@ -21,7 +21,7 @@
             <div id="phoneSection" style="margin-top: 90px; display: none">
                 <label>Phone Number:</label>
                 <input type="text" id="phoneNumber" readonly class="form-control" />
-                <button id="resendBtn" class="btn btn-warning mt-2">Resend Code</button>
+                <button class="btn btn-warning mt-2 resend-btn">Resend Code</button>
                 <button id="getOtpBtn" class="btn btn-success mt-2">Get OTP</button>
 
                 <div class="mt-3">
@@ -32,48 +32,89 @@
 
         <div class="col-md-1"></div>
 
-        <div class="col-md-7">
+        <div class="col-md-8">
             <h3>Rented Numbers</h3>
-            <table class="table table-bordered mt-3">
-                <thead class="thead-light">
+            <table class="table table-bordered mt-3" id="ordersTable" asp-action="GetAllRentedNumbers" asp-controller="Rent">
+                <thead class="thead-light bg-light">
                     <tr>
                         <th>#</th>
-                        <th>Phone</th>
                         <th>Order Code</th>
+                        <th>Phone</th>
+                        <th>Code</th>
+                        <th>Country</th>
+                        <th>Service</th>
                         <th>Status</th>
+                        <th>Cost</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="rentedNumbersTable">
-                    <tr>
-                        <td>0921332112</td>
-                        <td>fđsf</td>
-                        <td>sdfsd</td>
-                        <td>sdfsdf</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="">Refund</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>0921332112</td>
-                        <td>fđsf</td>
-                        <td>sdfsd</td>
-                        <td>sdfsdf</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="">Refund</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>0921332112</td>
-                        <td>fđsf</td>
-                        <td>sdfsd</td>
-                        <td>sdfsdf</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="">Refund</button>
-                        </td>
-                    </tr>
+                    @if (Model.Orders != null && Model.Orders.Any())
+                    {
+                        int index = 1;
+                        foreach (var order in Model.Orders)
+                        {
+                            <tr>
+                                <td>@index</td>
+                                <td>@order.OrderCode</td>
+                                <td class="clickable-phone" data-phone="@order.PhoneNumber">
+                                    <a href="javascript:void(0);" class="text-black text-decoration-none">@order.PhoneNumber</a>
+                                </td>
+                                <td>@order.Code</td>
+                                <td>@order.Country</td>
+                                <td>@order.Service</td>
+                                <td>
+                                    @switch (order.Status?.ToLower())
+                                    {
+                                        case "completed":
+                                            <span class="badge badge-success" style="font-size: 14px;">Completed</span>
+                                            break;
+                                        case "active":
+                                            <span class="badge badge-info" style="font-size: 14px;">Activating</span>
+                                            break;
+                                        case "expired":
+                                            <span class="badge badge-danger" style="font-size: 14px;">Expired</span>
+                                            break;
+                                        default:
+                                            <span class="badge badge-secondary" style="font-size: 14px;">@order.Status</span>
+                                            break;
+                                    }
+                                </td>                            
+                                <td>@order.Cost</td>
+                                <td>
+                                    @if (order.Status == "pending" || order.Status == "activating") {
+                                        <button class="btn btn-sm btn-warning refund-btn" id="refundBtn"
+                                                data-ordercode="@order.OrderCode"
+                                                data-orderid="@order.OrderId">
+                                            Refund
+                                        </button>
+                                    }
+                                    else {
+                                        <button class="btn btn-sm btn-info resend-btn-table"
+                                                data-ordercode="@order.OrderCode"        
+                                                data-orderid="@order.OrderId">     
+                                            Resend Code
+                                        </button>
+                                    }
+                               
+                                </td>
+                            </tr>
+                            index++;
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5">No rented numbers found</td>
+                        </tr>
+                    }
                 </tbody>
             </table>
+
+            <nav aria-label="Page navigation example">
+                <ul class="pagination justify-content-center pagination-dark" id="pagination">
+                </ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -83,8 +124,20 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
+             const id = $("#accountId").val().trim();
+             const orderMap = {}
 
-             $("form").on("submit", function (e) {
+             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id }, function (result) {
+                 console.log(result);
+                 if (result.success && result.orders) {
+                     allOrders = result.orders;
+                     renderTablePage(1);
+                 } else {
+                     console.log("No orders found or failed to load.");
+                 }
+             });
+
+            $("form").on("submit", function (e) {
                 e.preventDefault(); // Prevent form submission
                 const id = $("#accountId").val().trim();
                 console.log("AccountId:", id);
@@ -92,26 +145,58 @@
                 $.post('@Url.Action("RentNumber", "Rent")', { id: id }, function (res) {
                     if (res.success) {
                         $("#phoneNumber").val(res.phoneNumber);
+                        console.log(res);
+
+                        const orderId = res.orderId;
+                        const orderCode = orderId;
+
+                        // const fakeOrderCode = orderCode || "ORD-" + Math.random().toString(36).substr(2, 8).toUpperCase();
+                        // console.log(fakeOrderCode);
+
+                        let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
+
+                        orderMap[orderCode] = orderId;
+
+                        localStorage.setItem("orderMap", JSON.stringify(orderMap));
+
+                        console.log("Order Map: ", orderMap);
+
                         $("#phoneSection").show();
 
                         console.log("RentNumber response:", res);
-                        $("#getOtpBtn").data("order_code", res.orderCode);
-                        // $("#resendBtn").data("phone", res.phoneNumber);
+                        $("#getOtpBtn").data("order_id", res.orderId);
+                        
+                        // load full rented number
+                        $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id}, function(result) 
+                        {
+                            if(result.success && result.orders) 
+                            {
+                                allOrders = result.orders;
+                                renderTablePage(1);
+                            }
+                        });
                     } else {
                         alert("Error: " + res.message);
                     }
                 });
             });
 
+            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id}, function(result) {
+               if (result.success && result.orders) {
+                   allOrders = result.orders;
+                   renderTablePage(1);
+               }
+           });
+
             $("#getOtpBtn").on("click", function() {
                 const id = $("#accountId").val().trim();
-                const orderCode = $(this).data("order_code");
+                const orderId = $(this).data("order_id");
 
-                console.log("Sending orderCode to server:", orderCode);
+                console.log("Sending orderId to server:", orderId);
 
                 startCountdown();
 
-                $.post('@Url.Action("GetOtp", "Rent")', { id: id, orderCode: orderCode }, function (res) 
+                $.post('@Url.Action("GetOtp", "Rent")', { id: id, orderId: orderId }, function (res) 
                 {
                     if (res.success && res.otp) {
                         clearInterval(countdownInterval);
@@ -140,11 +225,20 @@
                 }, 1000);
             }
 
-             $("#resendBtn").on("click", function() {
-                const id = $("#accountId").val().trim();
-                const orderCode = $("#getOtpBtn").data("order_code");
+            $(document).on("click", ".clickable-phone", function () {
+                const phone = $(this).data("phone");
+                $("#phoneNumber").val(phone);
 
-                $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderCode: orderCode }, function (res)
+                $("#ordersTable tbody tr").removeClass("table-active");
+                $(this).closest("tr").addClass("table-active");
+            });
+
+
+            $(document).on("click", ".resend-btn", function () {
+                const id = $("#accountId").val().trim();
+                const orderId = $("#getOtpBtn").data("order_id");
+
+                $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderId: orderId }, function (res)
                 {
                     if (res.success) {
                         alert("Resent successfully");
@@ -154,6 +248,206 @@
                 });
             });
 
+            $(document).on("click", ".resend-btn-table", function () {
+                const id = $("#accountId").val().trim();
+                const orderCode = $(this).data("ordercode");
+                let orderId = $(this).data("orderid");
+
+                orderId = orderCode;
+
+
+                console.log("Resend clicked:", { orderCode, orderId });
+
+                $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderId: orderId }, function (res) {
+                    if (res.success) {
+                        alert("Resent successfully");
+                    } else {
+                        alert("Failed to resend code");
+                    }
+                });
+            });
+
+            $(document).on('click', '.refund-btn', function () {
+                const orderCode = $(this).data("ordercode");
+                let orderId = $(this).data("orderId");
+
+                let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
+                orderId = orderMap[orderCode];
+
+                console.log("orderCode = ", orderCode);
+                console.log("Mapped orderId from orderCode = ", orderMap[orderCode]);
+                console.log("Actual sent orderId = ", orderId);
+
+                const id = $("#accountId").val().trim();
+                if (confirm("Are you sure you want to refund this order?")) {
+                    $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
+                        console.log(res);
+                        if (res.success === true || res.message.includes("already been refunded")) {
+                            console.log("API response:", res);
+                            alert("Refund successful");
+
+                            // Reload the table data
+                            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id }, function(result) {
+                                if (result.success && result.orders) {
+                                    allOrders = result.orders;
+                                    renderTablePage(1);
+                                }
+                            });
+                        } else {
+                            alert("Refund failed: " + res.message);
+                        }
+                    });
+                }
+            });
         });
+
+
+        let allOrders = [];
+        const pageSize = 10;
+        let currentPage = 1;
+
+        function renderTablePage(page) {
+            currentPage = page;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const pagedData = allOrders.slice(start, end);
+
+            let rows = "";
+            let index = start + 1;
+
+
+            pagedData.forEach(order => {
+                let statusBadge = "";
+                const status = order.status?.toLowerCase();
+
+                switch(status) {
+                    case "completed":
+                        statusBadge = '<span class="badge badge-success" style="font-size: 14px;">Completed</span>';
+                        break;
+                    case "active":
+                        statusBadge = '<span class="badge badge-primary" style="font-size: 14px;">Awaiting SMS</span>';
+                        break;
+                    case "expired":
+                        statusBadge = '<span class="badge badge-danger" style="font-size: 14px;">Expired</span>';
+                        break;
+                    default:
+                        statusBadge = `<span class="badge badge-secondary" style="font-size: 14px;">${order.status}</span>`;
+                        break;
+                }
+
+                console.log("Order Status:", status);
+                console.log(order);
+
+                let actionButton = "";
+                if (status === "pending" || status === "activating") {
+                    actionButton = `<button class="btn btn-sm btn-warning refund-btn"
+                                        data-ordercode="${order.order_code}"
+                                        data-orderid="${order.order_id}">
+                                        Refund
+                                    </button>`;
+                } else {
+                    actionButton = `<button class="btn btn-sm btn-info resend-btn-table"
+                                        data-ordercode="${order.order_code}"
+                                        data-orderid="${order.order_id}">
+                                        Resend Code
+                                    </button>`;
+                }
+                    
+                rows += `
+                    <tr>
+                        <td>${index}</td>
+                        <td>${order.order_code}</td>
+                        <td class="clickable-phone" data-phone="${order.phonenumber}">
+                            <a href="javascript:void(0);" class="text-black text-decoration-none">${order.phonenumber}</a>
+                        </td>
+                        <td>${order.code ?? ''}</td>
+                        <td>${order.country}</td>
+                        <td>${order.service}</td>
+                        <td>${statusBadge}</td>
+                        <td>${order.cost}</td>
+                        <td>${actionButton}</td>                       
+                    </tr>`;
+                index++;
+            });
+
+            $("#rentedNumbersTable").html(rows);
+            renderPagination();
+        }
+
+        function renderPagination() {
+            const pageCount = Math.ceil(allOrders.length / pageSize);
+            let pagination = "";
+            const visiblePages = 4;
+
+            // Always show the first page
+            pagination += `
+                <li class="page-item ${currentPage === 1 ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="1">1</a>
+                </li>`;
+
+            // Show pages 2 to visiblePages (if currentPage is near start)
+            if (currentPage <= visiblePages) {
+                for (let i = 2; i <= Math.min(visiblePages + 1, pageCount - 1); i++) {
+                    pagination += `
+                        <li class="page-item ${currentPage === i ? 'active' : ''}">
+                            <a class="page-link" href="#" data-page="${i}">${i}</a>
+                        </li>`;
+                }
+
+                if (pageCount > visiblePages + 2) {
+                    pagination += `
+                        <li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            // If current page is far from start and not close to end
+            else if (currentPage > visiblePages && currentPage < pageCount - visiblePages + 1) {
+                pagination += `
+                    <li class="page-item disabled"><span class="page-link">...</span></li>`;
+
+                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                    pagination += `
+                        <li class="page-item ${currentPage === i ? 'active' : ''}">
+                            <a class="page-link" href="#" data-page="${i}">${i}</a>
+                        </li>`;
+                }
+
+                pagination += `
+                    <li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+
+            // If current page is near the end
+            else if (currentPage >= pageCount - visiblePages) {
+                pagination += `
+                    <li class="page-item disabled"><span class="page-link">...</span></li>`;
+
+                for (let i = pageCount - visiblePages; i < pageCount; i++) {
+                    if (i > 1) {
+                        pagination += `
+                            <li class="page-item ${currentPage === i ? 'active' : ''}">
+                                <a class="page-link" href="#" data-page="${i}">${i}</a>
+                            </li>`;
+                    }
+                }
+            }
+
+            // Always show last page
+            if (pageCount > 1) {
+                pagination += `
+                    <li class="page-item ${currentPage === pageCount ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${pageCount}">${pageCount}</a>
+                    </li>`;
+            }
+
+            $("#pagination").html(pagination);
+
+            $(".page-link").click(function (e) {
+                e.preventDefault();
+                const selectedPage = parseInt($(this).data("page"));
+                if (!isNaN(selectedPage)) {
+                    renderTablePage(selectedPage);
+                }
+            });
+        }
     </script>
 }

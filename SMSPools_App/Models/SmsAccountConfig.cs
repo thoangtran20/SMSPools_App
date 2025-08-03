@@ -8,4 +8,3 @@
 		public string? BaseUrl { get; set; }
 	}
 }
-// Compare this snippet from SMSPools_App/Models/SmsAccountConfig.cs:
