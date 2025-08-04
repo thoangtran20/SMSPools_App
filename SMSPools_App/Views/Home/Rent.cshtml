@@ -159,30 +159,47 @@
         const pageSize = 10;
         let currentPage = 1;
 
-        $(document).ready(function () {
-            if (!localStorage.getItem("userToken")) {
-                const token = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
-                localStorage.setItem('userToken', token);
+        function getUserToken() {
+            let token = localStorage.getItem("userToken");
+            if (!token) {
+                token = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
+                localStorage.setItem("userToken", token);
             }
+            return token;
+        }
+
+        function reloadOrders() {
+            const id = $("#accountId").val();
+            const token = getUserToken();
+
+            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: token }, function (result) {
+                if (result.success && result.orders) {
+                    allOrders = result.orders;
+                    renderTablePage(1);
+                    updateTimeLeft();
+                } else {
+                    console.log("No orders found or failed to load.");
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            const userToken = getUserToken();
+
+            // if (!userToken) {
+            //     const token = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
+            //     localStorage.setItem('userToken', token);
+            // }
 
             const id = $("#accountId").val().trim();
             const orderMap = {}
 
-            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: userToken }, function (result) {
-                 console.log(result);
-                 if (result.success && result.orders) {
-                     allOrders = result.orders;
-                     renderTablePage(1);
-                     updateTimeLeft();
-                 } else {
-                     console.log("No orders found or failed to load.");
-                 }
-            });
+            reloadOrders();
 
             $("form").on("submit", function (e) {
                 e.preventDefault(); // Prevent form submission
 
-                let token = localStorage.getItem('userToken');
+                let token = getUserToken();
                 const id = $("#accountId").val().trim();
                 console.log("AccountId:", id);
 
@@ -201,7 +218,6 @@
 
                         $("#phoneSection").show();
 
-                        console.log("RentNumber response:", res);
                         $("#getOtpBtn").data("order_id", res.orderId);
                         
                         // load full rented number
@@ -221,15 +237,7 @@
             });
 
             setInterval(function() {
-                const id = $("#accountId").val().trim();
-
-                $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id,  userToken: userToken}, function(result) {
-                   if (result.success && result.orders) {
-                       allOrders = result.orders;
-                       renderTablePage(1);
-                       updateTimeLeft();
-                   }
-                });
+                reloadOrders();
             }, 10000);
 
           
@@ -348,15 +356,10 @@
                    if (result.isConfirmed) {
                         $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
                             if (res.success === true || res.message.includes("already been refunded")) {
-                                    toastr.success("Refund successful.");
-                                    $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id }, function(result) {
-                                        if (result.success && result.orders) {
-                                            allOrders = result.orders;
-                                            renderTablePage(1);
-                                        }
-                                    });
-                                } else {
-                                    toastr.error("Refund failed: " + res.message);
+                               toastr.success("Refund successful.");
+                               reloadOrders();
+                            } else {
+                               toastr.error("Refund failed: " + res.message);
                             }
                         });
                    }

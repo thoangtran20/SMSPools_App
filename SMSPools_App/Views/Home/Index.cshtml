@@ -22,22 +22,27 @@ else
 
 @section Scripts {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+
     <script>
         $(document).ready(function () {
             $('.rent-btn').on('click', function (e) {
-               e.preventDefault();
+                e.preventDefault();
 
-               const id = $(this).data('id');
-               const userToken = localStorage.getItem('userToken');
+                const id = $(this).data('id');
 
-               if (!userToken) {
-                   toastr.warning("Missing user token!");
-                   return;
-               }
+                // Kiểm tra và tạo userToken nếu chưa có
+                let userToken = localStorage.getItem('userToken');
+                if (!userToken) {
+                    userToken = 'token_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('userToken', userToken);
+                    toastr.success("New user token created.");
+                }
 
-               const url = `/Home/Rent?id=${id}&userToken=${encodeURIComponent(userToken)}`;
-               console.log("Redirecting to:", url);
-               window.location.href = url;
+                const url = `/Home/Rent?id=${id}&userToken=${encodeURIComponent(userToken)}`;
+                console.log("Redirecting to:", url);
+                window.location.href = url;
             });
         });
     </script>

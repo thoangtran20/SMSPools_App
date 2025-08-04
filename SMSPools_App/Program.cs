@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<SmsAccountService>();
 builder.Services.AddScoped<ISmsApiService, SmsApiService>();
+builder.Services.AddSingleton<OrderTokenStore>();
 
 
 var app = builder.Build();

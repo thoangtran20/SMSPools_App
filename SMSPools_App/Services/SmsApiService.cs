@@ -7,9 +7,13 @@ namespace SMSPools_App.Services
     public class SmsApiService : ISmsApiService
     {
         private readonly HttpClient _httpClient;
+        private readonly static Dictionary<string, string> _orderUserTokens = new();
 
-        public SmsApiService()
+        private readonly OrderTokenStore _tokenStore;
+
+        public SmsApiService(OrderTokenStore tokenStore)
         {
+            _tokenStore = tokenStore;
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("https://api.smspool.net/");
         }
@@ -49,19 +53,20 @@ namespace SMSPools_App.Services
                 if (order != null)
                 {
                     order.UserToken = userToken;
+                    _orderUserTokens[order.OrderId] = userToken;
                 }
-				Console.WriteLine("RETURNING userToken: " + order?.UserToken);
-				return order;
+                Console.WriteLine("RETURNING userToken: " + order?.UserToken);
+                return order;
             }
             catch
             {
                 var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
-				var firstOrder = orders?.FirstOrDefault();
-				if (firstOrder != null)
-				{
-					firstOrder.UserToken = userToken;
-				}
-				return firstOrder;
+                var firstOrder = orders?.FirstOrDefault();
+                if (firstOrder != null)
+                {
+                    firstOrder.UserToken = userToken;
+                }
+                return firstOrder;
             }
         }
 
@@ -69,7 +74,7 @@ namespace SMSPools_App.Services
         {
             var url = "https://api.smspool.net/sms/check";
 
-             var parameters = new Dictionary<string, string>
+            var parameters = new Dictionary<string, string>
             {
                 { "orderid", orderId },
                 { "key", apiKey }
@@ -85,21 +90,21 @@ namespace SMSPools_App.Services
 
             Console.WriteLine("OTP RESPONSE: " + json);
 
-			if (!response.IsSuccessStatusCode)
-			{
-				Console.WriteLine("Status code: " + response.StatusCode);
-				Console.WriteLine("Response body: " + json);
-				return null;
-			}
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Status code: " + response.StatusCode);
+                Console.WriteLine("Response body: " + json);
+                return null;
+            }
 
-			using var doc = JsonDocument.Parse(json);
-			if (doc.RootElement.TryGetProperty("sms", out var smsElement))
-			{
-				var otp = smsElement.GetString();
-				return !string.IsNullOrEmpty(otp) ? otp : null;
-			}
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("sms", out var smsElement))
+            {
+                var otp = smsElement.GetString();
+                return !string.IsNullOrEmpty(otp) ? otp : null;
+            }
 
-			return null;
+            return null;
         }
 
         public async Task<bool> ResendCodeAsync(string orderId, string apiKey)
@@ -125,7 +130,7 @@ namespace SMSPools_App.Services
 
         }
 
-        public async Task<List<SmsOrderResponse>?> GetAlRentNumbersAsync(string apiKey, string userToken)
+        public async Task<List<SmsOrderResponse>> GetAlRentNumbersAsync(string apiKey, string userToken)
         {
             var url = "https://api.smspool.net/request/orders_new";
 
@@ -143,12 +148,26 @@ namespace SMSPools_App.Services
                 return null;
 
             var json = await response.Content.ReadAsStringAsync();
-			Console.WriteLine($"[UserToken: {userToken}] RENTED NUMBERS JSON: {json}");
-			Console.WriteLine("RENTED NUMBERS JSON: " + json);
+            Console.WriteLine($"[UserToken: {userToken}] RENTED NUMBERS JSON: {json}");
+            Console.WriteLine("RENTED NUMBERS JSON: " + json);
 
             var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
+            if (orders != null)
+            {
+                foreach (var order in orders)
+                {
+                    if (!string.IsNullOrEmpty(order.OrderId) && _orderUserTokens.TryGetValue(order.OrderId, out var token))
+                    {
+                        order.UserToken = token;
+                    }
+                }
+            }
+            return orders.Where(o => o.UserToken == userToken).ToList();
+        }
 
-            return orders;
+        public void SaveOrderUserToken(string orderId, string userToken)
+        {
+            _tokenStore.Set(orderId, userToken);
         }
         public async Task<bool> RefundOrderAsync(string orderId, string apiKey)
         {

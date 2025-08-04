@@ -46,19 +46,23 @@ namespace SMSPools_App.Controllers
             }
 
             var order = await _smsApiService.RentNumberAsync(account.ApiKey, userToken);
-			Console.WriteLine("RECEIVED userToken: " + userToken);
+            Console.WriteLine("RECEIVED userToken: " + userToken);
 
-			if (order == null)
+            if (order == null)
             {
                 return Json(new { success = false, message = "Failed to rent number" });
             }
+
+            _smsApiService.SaveOrderUserToken(order.OrderId, userToken);
+
             return Json(new
             {
                 success = true,
                 phoneNumber = order.PhoneNumber,
                 orderId = order.OrderId,
                 country = order.Country,
-                service = order.Service
+                service = order.Service,
+                userToken = userToken
             });
         }
 
@@ -103,11 +107,11 @@ namespace SMSPools_App.Controllers
             }
             var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
 
-			if (orders == null)
+            if (orders == null)
             {
                 return Json(new { success = false, message = "Failed to retrieve orders" });
             }
-            return Json(new { success = true, orders });
+            return Json(new { success = true, orders = orders });
         }
 
         [HttpPost]
