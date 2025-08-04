@@ -49,5 +49,8 @@ namespace SMSPools_App.Models
 		[JsonPropertyName("full_code")]
 		public string? FullCode { get; set; }
 
+		[JsonPropertyName("time_left")]
+		public int TimeLeft { get; set; }
+
 	}
 }

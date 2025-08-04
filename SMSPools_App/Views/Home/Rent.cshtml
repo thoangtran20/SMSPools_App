@@ -16,18 +16,28 @@
                     <input type="text" id="serviceId" value="828" class="form-control" readonly />
                 </div>
                 <button type="submit" id="rentBtn" class="btn btn-primary mt-4">Rent Number</button>
+
+                <div class="mt-3">
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-link">
+                        <i class="fa fa-home"></i>
+                        Back to Home
+                    </a>
+                </div>
             </form>
 
             <div id="phoneSection" style="margin-top: 90px; display: none">
                 <label>Phone Number:</label>
                 <input type="text" id="phoneNumber" readonly class="form-control" />
-                <button class="btn btn-warning mt-2 resend-btn">Resend Code</button>
+                <input type="hidden" id="orderIdInput" name="OrderId" />
+
+                <button class="btn btn-warning mt-2 resend-btn">Resend</button>
                 <button id="getOtpBtn" class="btn btn-success mt-2">Get OTP</button>
 
                 <div class="mt-3">
-                    <strong>OTP:</strong> <span id="otpDisplay"></span>
+                    <strong>OTP:</strong> <span class="text-danger" id="otpDisplay"></span>
                 </div>
             </div>
+
         </div>
 
         <div class="col-md-1"></div>
@@ -57,7 +67,9 @@
                             <tr>
                                 <td>@index</td>
                                 <td>@order.OrderCode</td>
-                                <td class="clickable-phone" data-phone="@order.PhoneNumber">
+                                <td class="clickable-phone" data-phone="@order.PhoneNumber" 
+                                        data-orderid="@order.OrderId"
+                                        data-ordercode="@order.OrderCode">
                                     <a href="javascript:void(0);" class="text-black text-decoration-none">@order.PhoneNumber</a>
                                 </td>
                                 <td>@order.Code</td>
@@ -66,18 +78,42 @@
                                 <td>
                                     @switch (order.Status?.ToLower())
                                     {
+                                        case "pending":
+                                            <span class="badge badge-warning" style="font-size: 14px;">
+                                                Activating SMS
+                                                @if (order.TimeLeft > 0)
+                                                {
+                                                    <span class="time-left" data-orderid="@order.OrderId"
+                                                          data-timeleft="@order.TimeLeft"> - @order.TimeLeft s</span>
+                                                }
+                                            </span>
+                                            @* <span class="badge badge-warning" style="font-size: 14px;">
+                                                Pending
+                                            </span> *@
+                                            break;
                                         case "completed":
                                             <span class="badge badge-success" style="font-size: 14px;">Completed</span>
                                             break;
-                                        case "active":
+                                        case "activating":
                                             <span class="badge badge-info" style="font-size: 14px;">Activating</span>
                                             break;
                                         case "expired":
                                             <span class="badge badge-danger" style="font-size: 14px;">Expired</span>
                                             break;
-                                        default:
-                                            <span class="badge badge-secondary" style="font-size: 14px;">@order.Status</span>
+                                        case "resend":
+                                            <span class="badge badge-secondary" style="font-size: 14px;">Resend</span>
                                             break;
+                                        default:
+                                            <span class="badge badge-warning" style="font-size: 14px;">
+                                                Activating SMS
+                                                @if (order.TimeLeft > 0)
+                                                {
+                                                    <span class="time-left" data-orderid="@order.OrderId"
+                                                          data-timeleft="@order.TimeLeft"> - @order.TimeLeft s</span>
+                                                }
+                                            </span>
+@*                                             <span class="badge badge-warning" style="font-size: 14px;">Pending</span>
+ *@                                          break;
                                     }
                                 </td>                            
                                 <td>@order.Cost</td>
@@ -90,10 +126,10 @@
                                         </button>
                                     }
                                     else {
-                                        <button class="btn btn-sm btn-info resend-btn-table"
+                                        <button class="btn btn-sm btn-primary resend-btn-table"
                                                 data-ordercode="@order.OrderCode"        
                                                 data-orderid="@order.OrderId">     
-                                            Resend Code
+                                            Resend
                                         </button>
                                     }
                                
@@ -123,6 +159,10 @@
 
 @section Scripts {
     <script>
+        let allOrders = [];
+        const pageSize = 10;
+        let currentPage = 1;
+
         $(document).ready(function () {
              const id = $("#accountId").val().trim();
              const orderMap = {}
@@ -132,6 +172,7 @@
                  if (result.success && result.orders) {
                      allOrders = result.orders;
                      renderTablePage(1);
+                     updateTimeLeft();
                  } else {
                      console.log("No orders found or failed to load.");
                  }
@@ -145,13 +186,10 @@
                 $.post('@Url.Action("RentNumber", "Rent")', { id: id }, function (res) {
                     if (res.success) {
                         $("#phoneNumber").val(res.phoneNumber);
-                        console.log(res);
+                        // console.log(res);
 
                         const orderId = res.orderId;
                         const orderCode = orderId;
-
-                        // const fakeOrderCode = orderCode || "ORD-" + Math.random().toString(36).substr(2, 8).toUpperCase();
-                        // console.log(fakeOrderCode);
 
                         let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
 
@@ -159,7 +197,7 @@
 
                         localStorage.setItem("orderMap", JSON.stringify(orderMap));
 
-                        console.log("Order Map: ", orderMap);
+                        // console.log("Order Map: ", orderMap);
 
                         $("#phoneSection").show();
 
@@ -173,20 +211,29 @@
                             {
                                 allOrders = result.orders;
                                 renderTablePage(1);
+                                updateTimeLeft();
                             }
                         });
                     } else {
-                        alert("Error: " + res.message);
+                        toastr.error("Error: " + res.message);
                     }
                 });
             });
 
-            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id}, function(result) {
-               if (result.success && result.orders) {
-                   allOrders = result.orders;
-                   renderTablePage(1);
-               }
-           });
+            setInterval(function() {
+                const id = $("#accountId").val().trim();
+
+                $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id}, function(result) {
+                   if (result.success && result.orders) {
+                       allOrders = result.orders;
+                       renderTablePage(1);
+                       updateTimeLeft();
+                       // console.log("Auto refresh order list.");
+                   }
+                });
+            }, 10000);
+
+          
 
             $("#getOtpBtn").on("click", function() {
                 const id = $("#accountId").val().trim();
@@ -227,8 +274,20 @@
 
             $(document).on("click", ".clickable-phone", function () {
                 const phone = $(this).data("phone");
-                $("#phoneNumber").val(phone);
+                let orderId = $(this).data("orderid");
+                const orderCode = $(this).data("ordercode");
 
+                orderId = orderCode;
+
+                console.log(orderCode);
+                console.log(orderId);
+
+                $("#phoneNumber").val(phone);
+                $("#phoneSection").show();
+
+                console.log($("#getOtpBtn").data());
+
+                $("#getOtpBtn").data("order_id", orderId);
                 $("#ordersTable tbody tr").removeClass("table-active");
                 $(this).closest("tr").addClass("table-active");
             });
@@ -241,9 +300,9 @@
                 $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderId: orderId }, function (res)
                 {
                     if (res.success) {
-                        alert("Resent successfully");
+                        toastr.success("Resent successfully");
                     } else {
-                        alert("Failed to resend code");
+                        toastr.error("Failed to resend code");
                     }
                 });
             });
@@ -260,9 +319,9 @@
 
                 $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderId: orderId }, function (res) {
                     if (res.success) {
-                        alert("Resent successfully");
+                        toastr.success("Resent successfully");
                     } else {
-                        alert("Failed to resend code");
+                        toastr.error("Failed to resend code");
                     }
                 });
             });
@@ -279,32 +338,32 @@
                 console.log("Actual sent orderId = ", orderId);
 
                 const id = $("#accountId").val().trim();
-                if (confirm("Are you sure you want to refund this order?")) {
-                    $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
-                        console.log(res);
-                        if (res.success === true || res.message.includes("already been refunded")) {
-                            console.log("API response:", res);
-                            alert("Refund successful");
-
-                            // Reload the table data
-                            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id }, function(result) {
-                                if (result.success && result.orders) {
-                                    allOrders = result.orders;
-                                    renderTablePage(1);
-                                }
-                            });
-                        } else {
-                            alert("Refund failed: " + res.message);
-                        }
-                    });
-                }
+                Swal.fire({
+                   title: "Are you sure?",
+                   text: "Do you want to refund this order?",
+                   icon: "warning",
+                   showCancelButton: true,
+                   confirmButtonText: "Yes, refund it!",
+                   cancelButtonText: "Cancel"
+                }).then((result) => {
+                   if (result.isConfirmed) {
+                        $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
+                            if (res.success === true || res.message.includes("already been refunded")) {
+                                    toastr.success("Refund successful.");
+                                    $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id }, function(result) {
+                                        if (result.success && result.orders) {
+                                            allOrders = result.orders;
+                                            renderTablePage(1);
+                                        }
+                                    });
+                                } else {
+                                    toastr.error("Refund failed: " + res.message);
+                            }
+                        });
+                   }
+                });
             });
         });
-
-
-        let allOrders = [];
-        const pageSize = 10;
-        let currentPage = 1;
 
         function renderTablePage(page) {
             currentPage = page;
@@ -320,36 +379,57 @@
                 let statusBadge = "";
                 const status = order.status?.toLowerCase();
 
+                console.log("Order: ", order);
+                const timeLeft = Number(order.time_left) || 0;
+                const createdAt = new Date();
+
                 switch(status) {
+                    case "pending":
+                        statusBadge = `
+                            <span class="badge badge-warning" style="font-size: 14px;">
+                                Awaiting SMS <span class="time-left" 
+                                    data-orderid="${order.order_id}" 
+                                    data-timeleft="${timeLeft}">(${timeLeft}s)</span>
+                            </span>`;
+                        //statusBadge = '<span class="badge badge-warning" style="font-size: 14px;">Pending</span>';
+                        break;
                     case "completed":
                         statusBadge = '<span class="badge badge-success" style="font-size: 14px;">Completed</span>';
                         break;
-                    case "active":
-                        statusBadge = '<span class="badge badge-primary" style="font-size: 14px;">Awaiting SMS</span>';
+                    case "activating":
+                        statusBadge = '<span class="badge badge-info" style="font-size: 14px;">Awaiting</span>';
                         break;
                     case "expired":
                         statusBadge = '<span class="badge badge-danger" style="font-size: 14px;">Expired</span>';
                         break;
+                    case "resend":
+                        statusBadge = '<span class="badge badge-secondary" style="font-size: 14px;">Resend</span>';
                     default:
-                        statusBadge = `<span class="badge badge-secondary" style="font-size: 14px;">${order.status}</span>`;
+                        statusBadge = `
+                            <span class="badge badge-warning" style="font-size: 14px;">
+                                Awaiting SMS <span class="time-left"
+                                    data-orderid="${order.order_id}"
+                                    data-timeleft="${timeLeft}">(${timeLeft}s)</span>
+                            </span>`;
+                        // statusBadge = `<span class="badge badge-warning" style="font-size: 14px;">${status}</span>`;
                         break;
                 }
 
-                console.log("Order Status:", status);
-                console.log(order);
+                // console.log("Order Status:", status);
+                // console.log(order);
 
                 let actionButton = "";
                 if (status === "pending" || status === "activating") {
                     actionButton = `<button class="btn btn-sm btn-warning refund-btn"
                                         data-ordercode="${order.order_code}"
                                         data-orderid="${order.order_id}">
-                                        Refund
+                                            Refund
                                     </button>`;
                 } else {
-                    actionButton = `<button class="btn btn-sm btn-info resend-btn-table"
+                    actionButton = `<button class="btn btn-sm btn-primary resend-btn-table"
                                         data-ordercode="${order.order_code}"
                                         data-orderid="${order.order_id}">
-                                        Resend Code
+                                            Resend
                                     </button>`;
                 }
                     
@@ -357,7 +437,9 @@
                     <tr>
                         <td>${index}</td>
                         <td>${order.order_code}</td>
-                        <td class="clickable-phone" data-phone="${order.phonenumber}">
+                        <td class="clickable-phone" data-phone="${order.phonenumber}" 
+                                data-orderid="${order.order_id}" 
+                                data-ordercode="${order.order_code}">
                             <a href="javascript:void(0);" class="text-black text-decoration-none">${order.phonenumber}</a>
                         </td>
                         <td>${order.code ?? ''}</td>
@@ -449,5 +531,45 @@
                 }
             });
         }
+
+        let countdownTimers = {};
+
+        function updateTimeLeft() {
+            for (let key in countdownTimers) {
+                clearInterval(countdownTimers[key]);
+            }
+            const countdownElements = document.querySelectorAll('.time-left');
+
+            countdownElements.forEach(el => {
+                let timeLeft = parseInt(el.dataset.timeleft);
+                const orderId = el.dataset.orderid;
+
+                if (isNaN(timeLeft) || timeLeft <= 0) {
+                    el.textContent = `(Expired)`;
+                    return;
+                }
+
+                el.textContent = `(${timeLeft}s)`;
+
+                countdownTimers[orderId] = setInterval(() => {
+                    timeLeft--;
+                    el.textContent = `(${timeLeft}s)`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(countdownTimers[orderId]);
+                        el.textContent = `(Expired)`;
+
+                        const badge = el.closest('.badge');
+                        if (badge) {
+                            badge.classList.remove('badge-warning', 'badge-info');
+                            badge.classList.add('badge-secondary');
+                            badge.innerHTML = `Expired`;
+                        }
+                    }
+                }, 1000);
+            });
+        }
+
+        updateTimeLeft();
     </script>
 }

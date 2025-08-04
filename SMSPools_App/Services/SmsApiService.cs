@@ -63,7 +63,7 @@ namespace SMSPools_App.Services
         {
             var url = "https://api.smspool.net/sms/check";
 
-            var parameters = new Dictionary<string, string>
+             var parameters = new Dictionary<string, string>
             {
                 { "orderid", orderId },
                 { "key", apiKey }
@@ -79,19 +79,21 @@ namespace SMSPools_App.Services
 
             Console.WriteLine("OTP RESPONSE: " + json);
 
-            if (!response.IsSuccessStatusCode)
-                Console.WriteLine("Status code: " + response.StatusCode);
-            Console.WriteLine("Response body: " + json);
-            return null;
+			if (!response.IsSuccessStatusCode)
+			{
+				Console.WriteLine("Status code: " + response.StatusCode);
+				Console.WriteLine("Response body: " + json);
+				return null;
+			}
 
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("sms", out var smsElement))
-            {
-                var otp = smsElement.GetString();
-                return !string.IsNullOrEmpty(otp) ? otp : null;
-            }
+			using var doc = JsonDocument.Parse(json);
+			if (doc.RootElement.TryGetProperty("sms", out var smsElement))
+			{
+				var otp = smsElement.GetString();
+				return !string.IsNullOrEmpty(otp) ? otp : null;
+			}
 
-            return null;
+			return null;
         }
 
         public async Task<bool> ResendCodeAsync(string orderId, string apiKey)
