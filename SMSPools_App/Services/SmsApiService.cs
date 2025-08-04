@@ -15,7 +15,7 @@ namespace SMSPools_App.Services
         }
 
 
-        public async Task<SmsOrderResponse?> RentNumberAsync(string apiKey)
+        public async Task<SmsOrderResponse?> RentNumberAsync(string apiKey, string userToken)
         {
             var requestUrl = "https://api.smspool.net/purchase/sms";
 
@@ -32,14 +32,10 @@ namespace SMSPools_App.Services
                 { "activation_type", "SMS" }
             };
 
-            using var httpClient = new HttpClient();
-
-            //var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
-            //request.Headers.Add("User-Agent", "Mozilla/5.0");
-
+            //using var httpClient = new HttpClient();
             using var content = new FormUrlEncodedContent(parameters);
 
-            var response = await httpClient.PostAsync(requestUrl, content);
+            var response = await _httpClient.PostAsync(requestUrl, content);
             var json = await response.Content.ReadAsStringAsync();
             Console.WriteLine("JSON RESPONSE: " + json);
 
@@ -50,12 +46,22 @@ namespace SMSPools_App.Services
             try
             {
                 var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
-                return order;
+                if (order != null)
+                {
+                    order.UserToken = userToken;
+                }
+				Console.WriteLine("RETURNING userToken: " + order?.UserToken);
+				return order;
             }
             catch
             {
                 var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
-                return orders?.FirstOrDefault();
+				var firstOrder = orders?.FirstOrDefault();
+				if (firstOrder != null)
+				{
+					firstOrder.UserToken = userToken;
+				}
+				return firstOrder;
             }
         }
 
@@ -119,7 +125,7 @@ namespace SMSPools_App.Services
 
         }
 
-        public async Task<List<SmsOrderResponse>?> GetAlRentNumbersAsync(string apiKey)
+        public async Task<List<SmsOrderResponse>?> GetAlRentNumbersAsync(string apiKey, string userToken)
         {
             var url = "https://api.smspool.net/request/orders_new";
 
@@ -137,7 +143,8 @@ namespace SMSPools_App.Services
                 return null;
 
             var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("RENTED NUMBERS JSON: " + json);
+			Console.WriteLine($"[UserToken: {userToken}] RENTED NUMBERS JSON: {json}");
+			Console.WriteLine("RENTED NUMBERS JSON: " + json);
 
             var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
 

@@ -3,13 +3,13 @@
 @if (Model != null && Model.Any())
 {
     Console.WriteLine(Model);
-    foreach (var acc in Model)
+    @foreach (var acc in Model)
     {
         <div class="card mb-4 shadow-sm">
             <div class="card-body">
                 <h5 class="card-title">@acc.Name</h5>
                 <p class="card-text">Description of Server @acc.Id</p>
-                <a href="@Url.Action("Rent", "Home", new { id = acc.Id })" class="btn btn-primary">View Details</a>
+                <a href="javascript:void(0)" class="btn btn-primary rent-btn" data-id="@acc.Id">View Details</a>
             </div>
         </div>
     }
@@ -17,4 +17,28 @@
 else
 {
     <p>No available accounts.</p>
+}
+
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('.rent-btn').on('click', function (e) {
+               e.preventDefault();
+
+               const id = $(this).data('id');
+               const userToken = localStorage.getItem('userToken');
+
+               if (!userToken) {
+                   toastr.warning("Missing user token!");
+                   return;
+               }
+
+               const url = `/Home/Rent?id=${id}&userToken=${encodeURIComponent(userToken)}`;
+               console.log("Redirecting to:", url);
+               window.location.href = url;
+            });
+        });
+    </script>
 }

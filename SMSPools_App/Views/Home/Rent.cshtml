@@ -87,9 +87,6 @@
                                                           data-timeleft="@order.TimeLeft"> - @order.TimeLeft s</span>
                                                 }
                                             </span>
-                                            @* <span class="badge badge-warning" style="font-size: 14px;">
-                                                Pending
-                                            </span> *@
                                             break;
                                         case "completed":
                                             <span class="badge badge-success" style="font-size: 14px;">Completed</span>
@@ -112,8 +109,7 @@
                                                           data-timeleft="@order.TimeLeft"> - @order.TimeLeft s</span>
                                                 }
                                             </span>
-@*                                             <span class="badge badge-warning" style="font-size: 14px;">Pending</span>
- *@                                          break;
+                                         break;
                                     }
                                 </td>                            
                                 <td>@order.Cost</td>
@@ -164,10 +160,15 @@
         let currentPage = 1;
 
         $(document).ready(function () {
-             const id = $("#accountId").val().trim();
-             const orderMap = {}
+            if (!localStorage.getItem("userToken")) {
+                const token = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
+                localStorage.setItem('userToken', token);
+            }
 
-             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id }, function (result) {
+            const id = $("#accountId").val().trim();
+            const orderMap = {}
+
+            $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: userToken }, function (result) {
                  console.log(result);
                  if (result.success && result.orders) {
                      allOrders = result.orders;
@@ -176,17 +177,18 @@
                  } else {
                      console.log("No orders found or failed to load.");
                  }
-             });
+            });
 
             $("form").on("submit", function (e) {
                 e.preventDefault(); // Prevent form submission
+
+                let token = localStorage.getItem('userToken');
                 const id = $("#accountId").val().trim();
                 console.log("AccountId:", id);
 
-                $.post('@Url.Action("RentNumber", "Rent")', { id: id }, function (res) {
+                $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token}, function (res) {
                     if (res.success) {
                         $("#phoneNumber").val(res.phoneNumber);
-                        // console.log(res);
 
                         const orderId = res.orderId;
                         const orderCode = orderId;
@@ -197,15 +199,13 @@
 
                         localStorage.setItem("orderMap", JSON.stringify(orderMap));
 
-                        // console.log("Order Map: ", orderMap);
-
                         $("#phoneSection").show();
 
                         console.log("RentNumber response:", res);
                         $("#getOtpBtn").data("order_id", res.orderId);
                         
                         // load full rented number
-                        $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id}, function(result) 
+                        $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id,  userToken: userToken }, function(result)
                         {
                             if(result.success && result.orders) 
                             {
@@ -223,12 +223,11 @@
             setInterval(function() {
                 const id = $("#accountId").val().trim();
 
-                $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id}, function(result) {
+                $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id,  userToken: userToken}, function(result) {
                    if (result.success && result.orders) {
                        allOrders = result.orders;
                        renderTablePage(1);
                        updateTimeLeft();
-                       // console.log("Auto refresh order list.");
                    }
                 });
             }, 10000);
@@ -391,7 +390,6 @@
                                     data-orderid="${order.order_id}" 
                                     data-timeleft="${timeLeft}">(${timeLeft}s)</span>
                             </span>`;
-                        //statusBadge = '<span class="badge badge-warning" style="font-size: 14px;">Pending</span>';
                         break;
                     case "completed":
                         statusBadge = '<span class="badge badge-success" style="font-size: 14px;">Completed</span>';
@@ -411,13 +409,8 @@
                                     data-orderid="${order.order_id}"
                                     data-timeleft="${timeLeft}">(${timeLeft}s)</span>
                             </span>`;
-                        // statusBadge = `<span class="badge badge-warning" style="font-size: 14px;">${status}</span>`;
                         break;
                 }
-
-                // console.log("Order Status:", status);
-                // console.log(order);
-
                 let actionButton = "";
                 if (status === "pending" || status === "activating") {
                     actionButton = `<button class="btn btn-sm btn-warning refund-btn"

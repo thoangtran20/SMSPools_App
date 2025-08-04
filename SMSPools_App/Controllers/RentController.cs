@@ -10,6 +10,7 @@ namespace SMSPools_App.Controllers
         private readonly ISmsApiService _smsApiService;
         private readonly SmsAccountService _accountService;
         public static List<RentNumberViewModel> RentNumbers = new List<RentNumberViewModel>();
+        private static Dictionary<string, List<SmsOrderResponse>> _userOrders = new();
 
         public RentController(ISmsApiService smsApiService, IWebHostEnvironment env)
         {
@@ -17,13 +18,13 @@ namespace SMSPools_App.Controllers
             _accountService = new SmsAccountService(env);
         }
 
-        public async Task<IActionResult> Rent(string id)
+        public async Task<IActionResult> Rent(string id, string userToken)
         {
             var account = _accountService.GetAccountById(id);
             if (account == null)
                 return NotFound();
 
-            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey);
+            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken);
 
             var viewModel = new RentNumberViewModel
             {
@@ -36,7 +37,7 @@ namespace SMSPools_App.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> RentNumber(string id)
+        public async Task<IActionResult> RentNumber(string id, string userToken)
         {
             var account = _accountService.GetAccountById(id);
             if (account == null)
@@ -44,8 +45,10 @@ namespace SMSPools_App.Controllers
                 return Json(new { success = false, message = "Account not found" });
             }
 
-            var order = await _smsApiService.RentNumberAsync(account.ApiKey);
-            if (order == null)
+            var order = await _smsApiService.RentNumberAsync(account.ApiKey, userToken);
+			Console.WriteLine("RECEIVED userToken: " + userToken);
+
+			if (order == null)
             {
                 return Json(new { success = false, message = "Failed to rent number" });
             }
@@ -91,14 +94,14 @@ namespace SMSPools_App.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> GetAllRentedNumbers(string id)
+        public async Task<IActionResult> GetAllRentedNumbers(string id, string userToken)
         {
             var account = _accountService.GetAccountById(id);
             if (account == null)
             {
                 return Json(new { success = false, message = "Account not found" });
             }
-            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey) ?? new List<SmsOrderResponse>();
+            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
 
 			if (orders == null)
             {

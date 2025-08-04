@@ -26,7 +26,7 @@ namespace SMSPools_App.Controllers
 			return View(accounts);
 		}
 
-		public async Task<IActionResult> Rent(string id)
+		public async Task<IActionResult> Rent(string id, string userToken)
 		{
 			var account = _smsAccountService.GetAccountById(id);
 			if (account == null)
@@ -34,7 +34,7 @@ namespace SMSPools_App.Controllers
 				return NotFound();
 			}
 
-			var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey);
+			var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken);
 
 			var viewModel = new RentNumberViewModel
 			{
