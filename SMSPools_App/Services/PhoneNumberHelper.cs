@@ -10,10 +10,10 @@ namespace SMSPools_App.Services
 			string digitsOnly = new string(phoneNumber.Where(char.IsDigit).ToArray());
 
 			// Remove country code if it is a US number
-			if (digitsOnly.Length > 0)
+			if (digitsOnly.Length == 11 && digitsOnly.StartsWith("1"))
 			{
 				digitsOnly = digitsOnly.Substring(1);
-			}
+			}	
 
 			if (digitsOnly.Length < 3) return true;
 			string prefix = digitsOnly.Substring(0, 3);

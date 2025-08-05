@@ -53,8 +53,6 @@ namespace SMSPools_App.Controllers
                 return Json(new { success = false, message = "Failed to rent number" });
             }
              
-            //_smsApiService.SaveOrderUserToken(order.OrderId, userToken);
-
             return Json(new
             {
                 success = true,
@@ -107,13 +105,18 @@ namespace SMSPools_App.Controllers
             }   
             var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
 			var userOrders = orders.Where(o => o.UserToken == userToken).ToList();
+
+			//var finalOrders = filterBlocked
+	  //          ? userOrders.Where(o => !PhoneNumberHelper.IsBlockedNumber(o.PhoneNumber)).ToList()
+	  //          : userOrders;
+
 			int count = userOrders.Count;
 
 			if (orders == null)
             {
                 return Json(new { success = false, message = "Failed to retrieve orders" });
             }
-            return Json(new { success = true, orders = orders });
+            return Json(new { success = true, orders = userOrders });
         }
 
         [HttpPost]

@@ -9,11 +9,15 @@ namespace SMSPools_App.Services
         private readonly HttpClient _httpClient;
         private readonly static Dictionary<string, string> _orderUserTokens = new();
 
-        private readonly OrderTokenStore _tokenStore;
+		private OrderTokenStorePerAccount GetTokenStore(string apiKey, string userToken)
+		{
+			return new OrderTokenStorePerAccount(apiKey, userToken);
+		}
 
-        public SmsApiService(OrderTokenStore tokenStore)
+
+		public SmsApiService()
         {
-            _tokenStore = tokenStore;
+            //_tokenStore = tokenStore;
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("https://api.smspool.net/");
         }
@@ -23,7 +27,9 @@ namespace SMSPools_App.Services
         {
             var requestUrl = "https://api.smspool.net/purchase/sms";
 
-            var parameters = new Dictionary<string, string>
+			var tokenStore = GetTokenStore(apiKey, userToken);
+
+			var parameters = new Dictionary<string, string>
             {
                 { "key", apiKey },
                 { "country", "1" },
@@ -36,42 +42,58 @@ namespace SMSPools_App.Services
                 { "activation_type", "SMS" }
             };
 
-            //using var httpClient = new HttpClient();
-            using var content = new FormUrlEncodedContent(parameters);
-
-            var response = await _httpClient.PostAsync(requestUrl, content);
-            var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("JSON RESPONSE: " + json);
-
-            if (!response.IsSuccessStatusCode)
+            const int maxAttempts = 5;
+            for (int i = 0; i < maxAttempts; i++)
             {
-                return null;
-            }
-            try
-            {
-                var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
-				if (order != null)
+				using var content = new FormUrlEncodedContent(parameters);
+
+				var response = await _httpClient.PostAsync(requestUrl, content);
+				var json = await response.Content.ReadAsStringAsync();
+				Console.WriteLine("JSON RESPONSE: " + json);
+
+				if (!response.IsSuccessStatusCode)
 				{
-					var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
-					if (!string.IsNullOrEmpty(key))
+					return null;
+				}
+				try
+				{
+					var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
+					if (order != null)
 					{
-						OrderTokenStore.Save(key, userToken);
-						order.UserToken = userToken;
+                        if (PhoneNumberHelper.IsBlockedNumber(order.PhoneNumber))
+                        {
+							Console.WriteLine($"Blocked number detected: {order.PhoneNumber}. Retrying...");
+							continue;
+						}
+
+						var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
+						if (!string.IsNullOrEmpty(key))
+						{
+							tokenStore.Save(key, userToken);
+							order.UserToken = userToken;
+						}
+						return order;
 					}
 				}
-				Console.WriteLine("RETURNING userToken: " + order?.UserToken);
-                return order;
-            }
-            catch
-            {
-                var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
-                var firstOrder = orders?.FirstOrDefault();
-                if (firstOrder != null)
-                {
-                    firstOrder.UserToken = userToken;
-                }
-                return firstOrder;
-            }
+				catch
+				{
+					var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
+					var firstOrder = orders?.FirstOrDefault();
+					if (firstOrder != null)
+					{
+						if (PhoneNumberHelper.IsBlockedNumber(firstOrder.PhoneNumber))
+						{
+							Console.WriteLine($"Blocked number detected (from list): {firstOrder.PhoneNumber}. Retrying...");
+							continue;
+						}
+
+						tokenStore.Save(firstOrder.OrderId, userToken);
+						firstOrder.UserToken = userToken;
+						return firstOrder;
+					}
+				}
+			}    
+            return null;
         }
 
         public async Task<string?> GetOtpAsync(string orderId, string apiKey)
@@ -137,8 +159,9 @@ namespace SMSPools_App.Services
         public async Task<List<SmsOrderResponse>> GetAlRentNumbersAsync(string apiKey, string userToken)
         {
             var url = "https://api.smspool.net/request/orders_new";
+			var tokenStore = GetTokenStore(apiKey, userToken);
 
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+			var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "key", apiKey },
                 { "country", "1" },
@@ -148,11 +171,10 @@ namespace SMSPools_App.Services
             using var httpClient = new HttpClient();
             var response = await httpClient.PostAsync(url, content);
 
-            if (!response.IsSuccessStatusCode)
-                return null;
+             if (!response.IsSuccessStatusCode)
+                return new List<SmsOrderResponse>();
 
-            var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[UserToken: {userToken}] RENTED NUMBERS JSON: {json}");
+			var json = await response.Content.ReadAsStringAsync();
             Console.WriteLine("RENTED NUMBERS JSON: " + json);
 
             var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
@@ -163,13 +185,11 @@ namespace SMSPools_App.Services
 					var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
 					if (!string.IsNullOrEmpty(key))
 					{
-						var token = OrderTokenStore.GetUserToken(key);
+						var token = tokenStore.GetUserToken(key);
 						if (!string.IsNullOrEmpty(token))
 						{
 							order.UserToken = token;
 						}
-						//Console.WriteLine("Current OrderTokenStore JSON:");
-						//Console.WriteLine(File.ReadAllText("order_tokens.json"));
 					}
 				}
 			}
