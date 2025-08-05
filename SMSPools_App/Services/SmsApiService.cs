@@ -50,12 +50,16 @@ namespace SMSPools_App.Services
             try
             {
                 var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
-                if (order != null)
-                {
-                    order.UserToken = userToken;
-                    _orderUserTokens[order.OrderId] = userToken;
-                }
-                Console.WriteLine("RETURNING userToken: " + order?.UserToken);
+				if (order != null)
+				{
+					var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
+					if (!string.IsNullOrEmpty(key))
+					{
+						OrderTokenStore.Save(key, userToken);
+						order.UserToken = userToken;
+					}
+				}
+				Console.WriteLine("RETURNING userToken: " + order?.UserToken);
                 return order;
             }
             catch
@@ -152,23 +156,25 @@ namespace SMSPools_App.Services
             Console.WriteLine("RENTED NUMBERS JSON: " + json);
 
             var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
-            if (orders != null)
-            {
-                foreach (var order in orders)
-                {
-                    if (!string.IsNullOrEmpty(order.OrderId) && _orderUserTokens.TryGetValue(order.OrderId, out var token))
-                    {
-                        order.UserToken = token;
-                    }
-                }
-            }
-            return orders.Where(o => o.UserToken == userToken).ToList();
-        }
-
-        public void SaveOrderUserToken(string orderId, string userToken)
-        {
-            _tokenStore.Set(orderId, userToken);
-        }
+			if (orders != null)
+			{
+				foreach (var order in orders)
+				{
+					var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
+					if (!string.IsNullOrEmpty(key))
+					{
+						var token = OrderTokenStore.GetUserToken(key);
+						if (!string.IsNullOrEmpty(token))
+						{
+							order.UserToken = token;
+						}
+						//Console.WriteLine("Current OrderTokenStore JSON:");
+						//Console.WriteLine(File.ReadAllText("order_tokens.json"));
+					}
+				}
+			}
+			return orders?.Where(o => o.UserToken == userToken).ToList() ?? new List<SmsOrderResponse>();
+		}
         public async Task<bool> RefundOrderAsync(string orderId, string apiKey)
         {
             var url = "https://api.smspool.net/sms/cancel";

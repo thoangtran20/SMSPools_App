@@ -52,8 +52,8 @@ namespace SMSPools_App.Controllers
             {
                 return Json(new { success = false, message = "Failed to rent number" });
             }
-
-            _smsApiService.SaveOrderUserToken(order.OrderId, userToken);
+             
+            //_smsApiService.SaveOrderUserToken(order.OrderId, userToken);
 
             return Json(new
             {
@@ -104,10 +104,12 @@ namespace SMSPools_App.Controllers
             if (account == null)
             {
                 return Json(new { success = false, message = "Account not found" });
-            }
+            }   
             var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
+			var userOrders = orders.Where(o => o.UserToken == userToken).ToList();
+			int count = userOrders.Count;
 
-            if (orders == null)
+			if (orders == null)
             {
                 return Json(new { success = false, message = "Failed to retrieve orders" });
             }

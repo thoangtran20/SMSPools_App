@@ -137,7 +137,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="5">No rented numbers found</td>
+                            <td colspan="9" class="text-center">No rented numbers found</td>
                         </tr>
                     }
                 </tbody>
@@ -175,7 +175,7 @@
             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: token }, function (result) {
                 if (result.success && result.orders) {
                     allOrders = result.orders;
-                    renderTablePage(1);
+                    renderTablePage(currentPage);
                     updateTimeLeft();
                 } else {
                     console.log("No orders found or failed to load.");
@@ -185,11 +185,6 @@
 
         $(document).ready(function () {
             const userToken = getUserToken();
-
-            // if (!userToken) {
-            //     const token = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
-            //     localStorage.setItem('userToken', token);
-            // }
 
             const id = $("#accountId").val().trim();
             const orderMap = {}
@@ -369,6 +364,16 @@
 
         function renderTablePage(page) {
             currentPage = page;
+
+            if (allOrders.length === 0) {
+                $("#rentedNumbersTable").html(`
+                    <tr>
+                        <td colspan="9" class="text-center">No rented numbers found</td>
+                    </tr>`);
+                $("#pagination").html(""); // Xóa phân trang
+                return;
+            }
+
             const start = (page - 1) * pageSize;
             const end = start + pageSize;
             const pagedData = allOrders.slice(start, end);
