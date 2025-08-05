@@ -10,6 +10,10 @@ builder.Services.AddScoped<ISmsApiService, SmsApiService>();
 //builder.Services.AddSingleton<OrderTokenStorePerAccount>();
 builder.Services.AddSingleton<PhoneNumberHelper>();
 
+builder.Services.AddControllersWithViews().AddRazorRuntimeCompilation();
+
+builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
+
 
 var app = builder.Build();
 
