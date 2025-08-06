@@ -195,6 +195,8 @@
             const id = $("#accountId").val();
             const token = getUserToken();
 
+            const currentPageBeforeReload = currentPage;
+
             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: token }, function (result) {
                 if (result.success && result.orders) {
                     allOrders = result.orders;
@@ -220,19 +222,15 @@
             });
         }
 
-
-        function reloadFullOrders(resetPage = false) {
+        function reloadFullOrders() {
             const id = $("#accountId").val();
+
+            const currentPageBeforeReload = currentPage;
+
             $.post('@Url.Action("GetAllOrders", "Rent")', { id: id }, function (result)
             {
                 if (result.success && result.orders) {
                     fullOrders = result.orders;
-
-                    console.log("Reset page: ", resetPage);
-
-                    if (resetPage) {
-                        currentPage = 1;
-                    }
 
                     isFilteringFromSMS = true;
 
@@ -311,7 +309,7 @@
                 $('#searchInput').prop('disabled', true);
 
                 if (fullOrders.length === 0) {
-                    reloadFullOrders(false);
+                    reloadFullOrders();
                 } else {
                     filterSMSOrders(keyword);
                 }
@@ -371,8 +369,10 @@
                 });
             });
 
-            setInterval(function() {
-                reloadOrders();
+            setInterval(function () {
+                if (!isFiltering && !isFilteringFromSMS) {
+                    reloadOrders();
+                }
             }, 1000);
 
             $("#getOtpBtn").on("click", function() {
@@ -590,7 +590,9 @@
                 ordersToRender = allOrders;
             }
 
-            if (page > pageSize) {
+            const totalPages = Math.ceil(ordersToRender.length / pageSize);
+
+            if (page > totalPages) {
                 currentPage = 1;
             } else {
                 currentPage = page;
