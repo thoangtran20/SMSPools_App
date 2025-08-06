@@ -48,12 +48,12 @@ namespace SMSPools_App.Controllers
             var order = await _smsApiService.RentNumberAsync(account.ApiKey, userToken);
             Console.WriteLine("RECEIVED userToken: " + userToken);
 
-            if (order == null)
-            {
-                return Json(new { success = false, message = "Failed to rent number" });
-            }
-             
-            return Json(new
+			if (order == null || !string.IsNullOrEmpty(order.ErrorMessage))
+			{
+				return Json(new { success = false, message = order?.ErrorMessage ?? "Failed to rent number" });
+			}
+
+			return Json(new
             {
                 success = true,
                 phoneNumber = order.PhoneNumber,
@@ -106,10 +106,6 @@ namespace SMSPools_App.Controllers
             var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
 			var userOrders = orders.Where(o => o.UserToken == userToken).ToList();
 
-			//var finalOrders = filterBlocked
-	  //          ? userOrders.Where(o => !PhoneNumberHelper.IsBlockedNumber(o.PhoneNumber)).ToList()
-	  //          : userOrders;
-
 			int count = userOrders.Count;
 
 			if (orders == null)
@@ -120,6 +116,23 @@ namespace SMSPools_App.Controllers
         }
 
         [HttpPost]
+		public async Task<IActionResult> GetAllOrders(string id)
+		{
+			var account = _accountService.GetAccountById(id);
+			if (account == null)
+			{
+				return Json(new { success = false, message = "Account not found" });
+			}
+			var orders = await _smsApiService.GetAllOrdersAsync(account.ApiKey) ?? new List<SmsOrderResponse>();
+
+			if (orders == null)
+			{
+				return Json(new { success = false, message = "Failed to retrieve orders" });
+			}
+			return Json(new { success = true, orders = orders });
+		}
+
+		[HttpPost]
         public async Task<IActionResult> RefundOrder(string id, [FromForm] string orderId)
         {
             Console.WriteLine($"RefundOrder called with orderId={orderId}");
@@ -134,22 +147,22 @@ namespace SMSPools_App.Controllers
             {
                 return Json(new { success = false, message = "Account not found" });
             }
-            bool success = await _smsApiService.RefundOrderAsync(orderId, account.ApiKey);
+            var result = await _smsApiService.RefundOrderAsync(orderId, account.ApiKey);
 
-            if (success)
+            if (result.Success)
             {
                 var itemToRemove = RentNumbers.FirstOrDefault(x => x.Order.OrderId == orderId);
-                if (itemToRemove != null)
+                if (itemToRemove != null) 
                 {
                     RentNumbers.Remove(itemToRemove);
                 }
-                return Json(new { success = true, message = "Cancel order and refund successful!!." });
-            }
-            else
+				return Json(new { success = true, message = result.Message });
+			}
+			else
             {
-                return Json(new { success = false, message = "Cancel order failed!!." });
-            }
-        }
+				return Json(new { success = false, message = result.Message });
+			}
+		}
 
 
         public IActionResult Index(string id)

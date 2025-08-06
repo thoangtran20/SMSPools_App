@@ -2,7 +2,7 @@
 {
 	public class RefundResponse
 	{
-		public int success { get; set; }
-		public string message { get; set; }
+		public bool Success { get; set; }
+		public string Message { get; set; }
 	}
 }

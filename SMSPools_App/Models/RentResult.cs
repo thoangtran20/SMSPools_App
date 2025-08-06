@@ -3,7 +3,5 @@
 	public class RentResult
 	{
 		public SmsOrderResponse? Order { get; set; }
-		public int BlockedCount { get; set; }
-		//public List<string>
-	}
+		public int BlockedCount { get; set; }	}
 }

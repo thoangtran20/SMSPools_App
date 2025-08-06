@@ -44,10 +44,16 @@
 
         <div class="col-md-8">
             <h3>Rented Numbers</h3>
-            <div class="form-group d-flex gap-2 align-items-end mb-2">
-                <input type="text" id="searchInput" class="form-control" placeholder="Search..." style="width: 350px;" />
-                <button class="btn btn-secondary" id="clearSearchBtn">Clear</button>
-            </div>
+            <div class="d-flex justify-content-between">
+                <div class="form-group d-flex gap-2 align-items-end mb-2">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search..." style="width: 250px;" />
+                    <button class="btn btn-secondary" id="clearSearchBtn">Clear</button>
+                </div>
+                <div class="form-group d-flex gap-2 align-items-end mb-2">
+                    <input type="text" id="globalSearchInput" class="form-control" placeholder="Search with SMSPools..." style="width: 250px;" />
+                    <button class="btn btn-secondary" id="globalClearSearchBtn">Clear</button>
+                </div>
+            </div>            
             <table class="table table-bordered mt-3" id="ordersTable" asp-action="GetAllRentedNumbers" asp-controller="Rent">
                 <thead class="thead-light bg-light">
                     <tr>
@@ -150,7 +156,7 @@
             <nav aria-label="Page navigation example">
                 <div class="d-flex justify-content-between align-items-center">
                     <div id="pageInfo" class="text-muted fw-bold" style="margin-top: -10px"></div>
-                    <div style="margin-right: -90px;">
+                    <div style="margin: 0 auto">
                         <ul class="pagination pagination-dark" id="pagination"></ul>
                     </div>
                 </div>
@@ -166,6 +172,15 @@
         let allOrders = [];
         const pageSize = 10;
         let currentPage = 1;
+
+        let fullOrders = [];
+        let filteredOrders = [];
+
+        let isFilteringFromSMS = false;
+        let isFiltering = false;
+
+        let smsKeyword = '';
+        let globalKeyword = '';
 
         function getUserToken() {
             let token = localStorage.getItem("userToken");
@@ -184,15 +199,59 @@
                 if (result.success && result.orders) {
                     allOrders = result.orders;
 
-                    const totalPages = Math.ceil(allOrders.length / pageSize);
-                    if (currentPage > totalPages) {
-                        currentPage = totalPages > 0 ? totalPages : 1;
+                    // console.log(allOrders);
+
+                    if (isFiltering) {
+                        const keyword = $("#searchInput").val().toLowerCase().trim();
+                        console.log(keyword);
+                        filterOrders(keyword);
+                    } else {
+                        const totalPages = Math.ceil(allOrders.length / pageSize);
+                        if (currentPage > totalPages) {
+                            currentPage = totalPages > 0 ? totalPages : 1;
+                        }
+                        renderTablePage(currentPage);
                     }
 
-                    renderTablePage(currentPage);
                     updateTimeLeft();
                 } else {
                     console.log("No orders found or failed to load.");
+                }
+            });
+        }
+
+
+        function reloadFullOrders(resetPage = false) {
+            const id = $("#accountId").val();
+            $.post('@Url.Action("GetAllOrders", "Rent")', { id: id }, function (result)
+            {
+                if (result.success && result.orders) {
+                    fullOrders = result.orders;
+
+                    console.log("Reset page: ", resetPage);
+
+                    if (resetPage) {
+                        currentPage = 1;
+                    }
+
+                    isFilteringFromSMS = true;
+
+                    // console.log("Full orders reloaded:", fullOrders);
+
+                    if (isFilteringFromSMS) {
+                        const keyword = $("#globalSearchInput").val().toLowerCase().trim();
+                        console.log(keyword);
+                        filterSMSOrders(keyword);
+                    } else {
+                        const totalPages = Math.ceil(fullOrders.length / pageSize);
+                        if (currentPage > totalPages) {
+                            currentPage = totalPages > 0 ? totalPages : 1;
+                        }
+                        renderTablePage(currentPage);
+                    }
+                    updateTimeLeft();
+                } else {
+                    console.error("Failed to reload full orders:", result.message);
                 }
             });
         }
@@ -204,6 +263,81 @@
             const orderMap = {}
 
             reloadOrders();
+
+            $("#searchInput").on("input", function() {
+                const keyword = $(this).val().toLowerCase().trim();
+
+                if (!keyword) {
+                    resetInputs();
+                    isFiltering = false;
+                    currentPage = 1;
+                    renderTablePage(currentPage);
+                    reloadOrders();
+                    return;
+                }
+                isFiltering = true;
+                isFilteringFromSMS = false;
+                $('#globalSearchInput').prop('disabled', true);
+
+                filterOrders(keyword);
+
+            });
+
+            function resetInputs() {
+                const searchVal = $('#searchInput').val().trim();
+                const searchSmsVal = $('#globalSearchInput').val().trim();
+
+                if (searchVal === '' && searchSmsVal === '') {
+                    $('#searchInput').prop('disabled', false);
+                    $('#globalSearchInput').prop('disabled', false);
+                }
+            }
+
+            let lastGlobalKeyword = "";
+
+            $("#globalSearchInput").on("input", function() {
+                const keyword = $(this).val().toLowerCase().trim();
+
+                if (!keyword) {
+                    resetInputs();
+                    isFilteringFromSMS = false;
+                    currentPage = 1;
+                    renderTablePage(currentPage);
+                    reloadOrders();
+                    return;
+                }
+                isFiltering = false;
+                isFilteringFromSMS  = true;
+                $('#searchInput').prop('disabled', true);
+
+                if (fullOrders.length === 0) {
+                    reloadFullOrders(false);
+                } else {
+                    filterSMSOrders(keyword);
+                }
+            });
+
+            $("#clearSearchBtn").click(function () {
+                resetInputs();
+                $("#searchInput").val('');
+                $("#globalSearchInput").prop('disabled', false);
+                isFiltering = false;
+                isFilteringFromSMS = false;
+                currentPage = 1;
+                reloadOrders();
+                renderTablePage(currentPage);
+            });
+
+            $("#globalClearSearchBtn").click(function () {
+                resetInputs();
+                $("#globalSearchInput").val('');
+                $("#searchInput").prop('disabled', false);
+                isFiltering = false;
+                isFilteringFromSMS = false;
+                currentPage = 1;
+                reloadOrders();
+                renderTablePage(currentPage);
+            });
 
             $("form").on("submit", function (e) {
                 e.preventDefault(); // Prevent form submission
@@ -230,15 +364,7 @@
                         $("#getOtpBtn").data("order_id", res.orderId);
                         
                         // load full rented number
-                        $.post('@Url.Action("GetAllRentedNumbers", "Rent")', {id: id,  userToken: userToken }, function(result)
-                        {
-                            if(result.success && result.orders) 
-                            {
-                                allOrders = result.orders;
-                                renderTablePage(1);
-                                updateTimeLeft();
-                            }
-                        });
+                        reloadOrders();
                     } else {
                         toastr.error("Error: " + res.message);
                     }
@@ -248,8 +374,6 @@
             setInterval(function() {
                 reloadOrders();
             }, 1000);
-
-          
 
             $("#getOtpBtn").on("click", function() {
                 const id = $("#accountId").val().trim();
@@ -303,17 +427,21 @@
 
                 orderId = orderCode;
 
-                console.log(orderCode);
-                console.log(orderId);
-
                 $("#phoneNumber").val(phone);
                 $("#phoneSection").show();
-
-                console.log($("#getOtpBtn").data());
 
                 $("#getOtpBtn").data("order_id", orderId);
                 $("#ordersTable tbody tr").removeClass("table-active");
                 $(this).closest("tr").addClass("table-active");
+
+                navigator.clipboard.writeText(phone)
+                    .then(() => {
+                        toastr.success("Copied phone number: " + phone);
+                    })
+                    .catch(err => {
+                        console.error("Failed to copy phone number", err);
+                        toastr.error("Failed to copy phone number");
+                    });
             });
 
 
@@ -337,8 +465,6 @@
                 let orderId = $(this).data("orderid");
 
                 orderId = orderCode;
-
-
                 console.log("Resend clicked:", { orderCode, orderId });
 
                 $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderId: orderId }, function (res) {
@@ -370,24 +496,109 @@
                    confirmButtonText: "Yes, refund it!",
                    cancelButtonText: "Cancel"
                 }).then((result) => {
-                   if (result.isConfirmed) {
-                        $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
-                            if (res.success === true || res.message.includes("already been refunded")) {
-                               toastr.success("Refund successful.");
-                               reloadOrders();
-                            } else {
-                               toastr.error("Refund failed: " + res.message);
-                            }
-                        });
-                   }
+                      if (result.isConfirmed) {
+                          $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
+                             if (res.success === true || res.message.includes("already been refunded")) {
+                                toastr.success(res.message);
+                                reloadOrders();
+                             } else {
+                                toastr.error("Refund failed: " + res.message);
+                             }
+                            });
+                       }
+                    });
                 });
-            });
         });
+
+        function filterOrders(keyword) {
+            keyword = keyword.toLowerCase().trim();
+
+            filteredOrders = allOrders.filter(order => {
+                return (
+                    (order.order_code && order.order_code?.toLowerCase().includes(keyword)) ||
+                    (order.phonenumber && order.phonenumber?.toLowerCase().includes(keyword)) ||
+                    (order.code && order.code?.toLowerCase().includes(keyword)) ||
+                    (order.country && order.country?.toLowerCase().includes(keyword)) ||
+                    (order.service && order.service?.toLowerCase().includes(keyword)) ||
+                    (order.status && order.status?.toLowerCase().includes(keyword)) ||
+                    (order.cost && order.cost?.toLowerCase().includes(keyword))
+                );
+            });
+
+            // console.log("Orders after filter: ", filteredOrders);
+
+            const maxPage = Math.ceil(filteredOrders.length / pageSize);
+            console.log("Current Page: ", currentPage);
+
+            if (currentPage > maxPage) {
+                currentPage = maxPage > 0 ? maxPage : 1;
+            }
+
+            if (filteredOrders.length === 0) {
+                $("#pageInfo").text("").hide();
+            } else {
+                $("#pageInfo").text(`Page ${currentPage} of ${maxPage || 1}`).show();
+
+            }
+            renderTablePage(currentPage);
+        }
+
+        function filterSMSOrders(keyword) {
+            keyword = keyword.toLowerCase().trim();
+
+            // console.log("Full Orders: ", fullOrders);
+
+            filteredOrders = fullOrders.filter(order => {
+                return (
+                    (order.order_code && order.order_code?.toLowerCase().includes(keyword)) ||
+                    (order.phonenumber && order.phonenumber?.toLowerCase().includes(keyword)) ||
+                    (order.code && order.code?.toLowerCase().includes(keyword)) ||
+                    (order.country && order.country?.toLowerCase().includes(keyword)) ||
+                    (order.service && order.service?.toLowerCase().includes(keyword)) ||
+                    (order.status && order.status   ?.toLowerCase().includes(keyword)) ||
+                    (order.cost && order.cost?.toLowerCase().includes(keyword))
+                );
+            });
+
+            // console.log("Full Orders after filter: ", filteredOrders);
+            // console.log("Page size: ", pageSize);
+            const maxPage = Math.ceil(filteredOrders.length / pageSize);
+            // console.log(maxPage);
+            if (currentPage > maxPage) {
+                currentPage = maxPage > 0 ? maxPage : 1;
+            }
+
+            if (filteredOrders.length === 0) {
+                $("#pageInfo").text("").hide();
+            } else {
+                $("#pageInfo").text(`Page ${currentPage} of ${maxPage || 1}`).show();
+
+            }
+            renderTablePage(currentPage);
+        }
 
         function renderTablePage(page) {
             currentPage = page;
 
-            if (allOrders.length === 0) {
+            let ordersToRender = [];
+
+            if (isFilteringFromSMS) {
+                ordersToRender = filteredOrders;
+            } else if (isFiltering) {
+                ordersToRender = filteredOrders;
+            } else {
+                ordersToRender = allOrders;
+            }
+
+            if (page > pageSize) {
+                currentPage = 1;
+            } else {
+                currentPage = page;
+            }
+
+            // console.log("Orders after filter with SMSPools: ", ordersToRender);
+
+            if (ordersToRender.length === 0) {
                 $("#rentedNumbersTable").html(`
                     <tr>
                         <td colspan="9" class="text-center">No rented numbers found</td>
@@ -398,19 +609,21 @@
                 return;
             }
 
+            // console.log("Page size: ". pageSize);
+
             const start = (page - 1) * pageSize;
             const end = start + pageSize;
-            const pagedData = allOrders.slice(start, end);
+            const pagedData = ordersToRender.slice(start, end);
+            // console.log("Paged data: ", pagedData);
 
             let rows = "";
             let index = start + 1;
-
 
             pagedData.forEach(order => {
                 let statusBadge = "";
                 const status = order.status?.toLowerCase();
 
-                console.log("Order: ", order);
+                // console.log("Order: ", order);
                 const timeLeft = Number(order.time_left) || 0;
                 const createdAt = new Date();
 
@@ -482,10 +695,28 @@
         }
 
         function renderPagination() {
-            const pageCount = Math.ceil(allOrders.length / pageSize);
+            let ordersToRender = [];
+
+            if (isFilteringFromSMS) {
+                ordersToRender = filteredOrders;
+            } else if (isFiltering) {
+                ordersToRender = filteredOrders;
+            } else {
+                ordersToRender = allOrders;
+            }
+
+            const pageCount = Math.ceil(ordersToRender.length / pageSize);
+
+            // console.log("Page count: ", pageCount);
             let pagination = "";
 
-            $("#pageInfo").text(`Page ${currentPage} of ${pageCount}`);
+            if (pageCount === 0) {
+                $("#pagination").html("");
+                $("#pageInfo").text("").hide();
+                return;
+            }
+
+            $("#pageInfo").text(`Page ${currentPage} of ${pageCount}`).show();
 
             // Prev button
             pagination += `

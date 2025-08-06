@@ -51,7 +51,8 @@ namespace SMSPools_App.Models
 
 		[JsonPropertyName("time_left")]
 		public int TimeLeft { get; set; }
-
+		
+		public string? ErrorMessage { get; set; }
 		public string? UserToken { get; set; }
 
 	}

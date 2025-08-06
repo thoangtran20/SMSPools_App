@@ -22,7 +22,6 @@ namespace SMSPools_App.Services
             _httpClient.BaseAddress = new Uri("https://api.smspool.net/");
         }
 
-
         public async Task<SmsOrderResponse?> RentNumberAsync(string apiKey, string userToken)
         {
             var requestUrl = "https://api.smspool.net/purchase/sms";
@@ -42,7 +41,7 @@ namespace SMSPools_App.Services
                 { "activation_type", "SMS" }
             };
 
-            const int maxAttempts = 5;
+            const int maxAttempts = 2;
             int blockedCount = 0;
             List<string> blockedNumbers = new();
 
@@ -53,11 +52,35 @@ namespace SMSPools_App.Services
                 var json = await response.Content.ReadAsStringAsync();
                 Console.WriteLine("JSON RESPONSE: " + json);
 
-                if (!response.IsSuccessStatusCode)
-                {
-                    return null;
-                }
-                try
+				//if (!response.IsSuccessStatusCode)
+				//{
+				//    return null;
+				//}
+				if (json.Contains("too many failed purchases"))
+				{
+					return new SmsOrderResponse
+					{
+						PhoneNumber = "",
+						OrderId = "",
+						Country = parameters["country"],
+						Service = parameters["service"],
+						UserToken = userToken,
+						ErrorMessage = "Too many failed purchases. Please try again in 6 hours."
+					};
+				}
+				if (json.Contains("Insufficient balance"))
+				{
+					return new SmsOrderResponse
+					{
+						PhoneNumber = "",
+						OrderId = "",
+						Country = parameters["country"],
+						Service = parameters["service"],
+						UserToken = userToken,
+						ErrorMessage = "Insufficient balance, the price is: 0.14 while you only have: 0.08"
+					};
+				}
+				try
                 {
                     var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
                     if (order != null)
@@ -207,7 +230,7 @@ namespace SMSPools_App.Services
             }
             return orders?.Where(o => o.UserToken == userToken).ToList() ?? new List<SmsOrderResponse>();
         }
-        public async Task<bool> RefundOrderAsync(string orderId, string apiKey)
+        public async Task<RefundResponse> RefundOrderAsync(string orderId, string apiKey)
         {
             var url = "https://api.smspool.net/sms/cancel";
 
@@ -225,34 +248,53 @@ namespace SMSPools_App.Services
 
             Console.WriteLine("REFUND JSON RESPONSE: " + json);
 
-            if (!response.IsSuccessStatusCode)
-                return false;
+			if (!response.IsSuccessStatusCode)
+			{
+				return new RefundResponse { Success = false, Message = "Failed to reach API" };
+			}
 
-            try
+			try
             {
                 using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("message", out var messageElement))
-                {
-                    Console.WriteLine("Refund message: " + messageElement.ToString());
-                }
+				var message = doc.RootElement.GetProperty("message").ToString();
+				var success = doc.RootElement.GetProperty("success").ToString() == "1";
 
-                if (doc.RootElement.TryGetProperty("success", out var successElement))
-                {
-                    var success = successElement.ToString() == "1";
-                    if (!success)
-                    {
-                        Console.WriteLine("Refund failed with message: " + messageElement.ToString());
-                    }
-                    return success;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("RefundOrderAsync ERROR: " + ex.Message);
-            }
-
-            return false;
+				return new RefundResponse
+				{
+					Success = success,
+					Message = message
+				};
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("RefundOrderAsync ERROR: " + ex.Message);
+				return new RefundResponse { Success = false, Message = "Exception occurred while parsing refund response." };
+			}
         }
 
-    }
+		public async Task<List<SmsOrderResponse>> GetAllOrdersAsync(string apiKey)
+		{
+			var url = "https://api.smspool.net/request/orders_new";
+
+			var content = new FormUrlEncodedContent(new Dictionary<string, string>
+			{
+				{ "key", apiKey },
+				{ "country", "1" },
+				{ "service", "828" }
+			});
+
+			using var httpClient = new HttpClient();
+			var response = await httpClient.PostAsync(url, content);
+
+			if (!response.IsSuccessStatusCode)
+				return null;
+
+			var json = await response.Content.ReadAsStringAsync();
+			Console.WriteLine("RENTED NUMBERS JSON: " + json);
+
+			var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
+
+            return orders;
+		}
+	}
 }
