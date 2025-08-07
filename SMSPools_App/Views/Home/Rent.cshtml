@@ -15,6 +15,11 @@
                     <label>Service</label>
                     <input type="text" id="serviceId" value="828" class="form-control" readonly />
                 </div>
+
+                <div class="form-group">
+                    <label for="rentCount">Numbers:</label>
+                    <input type="number" id="rentCount" class="form-control" value="1" min="1" />
+                </div>
                 <button type="submit" id="rentBtn" class="btn btn-primary mt-4">Rent Number</button>
 
                 <div class="mt-3">
@@ -32,6 +37,7 @@
 
                 <button class="btn btn-warning mt-2 resend-btn">Resend</button>
                 <button id="getOtpBtn" class="btn btn-success mt-2">Get OTP</button>
+                <button id="clearBtn" class="btn btn-secondary mt-2">Clear</button>
 
                 <div class="mt-3">
                     <strong>OTP:</strong> <span class="text-danger" id="otpDisplay"></span>
@@ -43,17 +49,25 @@
         <div class="col-md-1"></div>
 
         <div class="col-md-8">
-            <h3>Rented Numbers</h3>
-            <div class="d-flex justify-content-between">
-                <div class="form-group d-flex gap-2 align-items-end mb-2">
-                    <input type="text" id="searchInput" class="form-control" placeholder="Search..." style="width: 250px;" />
+            <div class="row">
+                <div class="col-md-4">
+                    <h3>Rented Numbers</h3>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-danger" id="clearAll">Clear All Data</button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-6 d-flex">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search..." style="width: 350px;" />
                     <button class="btn btn-secondary" id="clearSearchBtn">Clear</button>
                 </div>
-                <div class="form-group d-flex gap-2 align-items-end mb-2">
-                    <input type="text" id="globalSearchInput" class="form-control" placeholder="Search with SMSPools..." style="width: 250px;" />
+                <div class="col-md-6 d-flex">
+                    <input type="text" id="globalSearchInput" class="form-control" placeholder="Search with SMSPools..." style="width: 350px;" />
                     <button class="btn btn-secondary" id="globalClearSearchBtn">Clear</button>
                 </div>
-            </div>            
+            </div>
+
             <table class="table table-bordered mt-3" id="ordersTable" asp-action="GetAllRentedNumbers" asp-controller="Rent">
                 <thead class="thead-light bg-light">
                     <tr>
@@ -82,7 +96,11 @@
                                         data-ordercode="@order.OrderCode">
                                     <a href="javascript:void(0);" class="text-black text-decoration-none">@order.PhoneNumber</a>
                                 </td>
-                                <td>@order.Code</td>
+                                <td class="clickable-code" data-code="@order.Code"
+                                        data-orderid="@order.OrderId"
+                                        data-ordercode="@order.OrderCode">
+                                    <a href="javascript:void(0);" class="text-black text-decoration-none">@order.Code</a>
+                                </td>
                                 <td>@order.Country</td>
                                 <td>@order.Service</td>
                                 <td>
@@ -125,14 +143,14 @@
                                 <td>@order.Cost</td>
                                 <td>
                                     @if (order.Status == "pending" || order.Status == "activating") {
-                                        <button class="btn btn-sm btn-warning refund-btn" id="refundBtn"
+                                        <button class="btn btn-sm btn-warning refund-btn fw-bold" id="refundBtn"
                                                 data-ordercode="@order.OrderCode"
                                                 data-orderid="@order.OrderId">
                                             Refund
                                         </button>
                                     }
                                     else {
-                                        <button class="btn btn-sm btn-primary resend-btn-table"
+                                        <button class="btn btn-sm btn-primary resend-btn-table fw-bold"
                                                 data-ordercode="@order.OrderCode"        
                                                 data-orderid="@order.OrderId">     
                                             Resend
@@ -200,12 +218,8 @@
             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: token }, function (result) {
                 if (result.success && result.orders) {
                     allOrders = result.orders;
-
-                    // console.log(allOrders);
-
                     if (isFiltering) {
                         const keyword = $("#searchInput").val().toLowerCase().trim();
-                        console.log(keyword);
                         filterOrders(keyword);
                     } else {
                         const totalPages = Math.ceil(allOrders.length / pageSize);
@@ -216,7 +230,7 @@
                     }
 
                     updateTimeLeft();
-                } else {
+                } else {    
                     console.log("No orders found or failed to load.");
                 }
             });
@@ -231,14 +245,9 @@
             {
                 if (result.success && result.orders) {
                     fullOrders = result.orders;
-
                     isFilteringFromSMS = true;
-
-                    // console.log("Full orders reloaded:", fullOrders);
-
                     if (isFilteringFromSMS) {
                         const keyword = $("#globalSearchInput").val().toLowerCase().trim();
-                        console.log(keyword);
                         filterSMSOrders(keyword);
                     } else {
                         const totalPages = Math.ceil(fullOrders.length / pageSize);
@@ -262,6 +271,8 @@
 
             reloadOrders();
 
+            let lastKeyword = "";
+
             $("#searchInput").on("input", function() {
                 const keyword = $(this).val().toLowerCase().trim();
 
@@ -273,9 +284,25 @@
                     reloadOrders();
                     return;
                 }
+
+                if (keyword !== "") {
+                    if (lastKeyword !== keyword) {
+                        isFiltering = true;
+                        currentPage = 1;
+                        reloadOrders();
+                    }
+                } else {
+                    if (isFiltering) {
+                        isFiltering = false;
+                        reloadOrders();
+                    }
+                }
+
                 isFiltering = true;
                 isFilteringFromSMS = false;
                 $('#globalSearchInput').prop('disabled', true);
+                $('#globalClearSearchBtn').prop('disabled', true);
+                $('#clearSearchBtn').prop('disabled', false);
 
                 filterOrders(keyword);
 
@@ -291,34 +318,98 @@
                 }
             }
 
-            let lastGlobalKeyword = "";
-
             $("#globalSearchInput").on("input", function() {
                 const keyword = $(this).val().toLowerCase().trim();
 
                 if (!keyword) {
                     resetInputs();
                     isFilteringFromSMS = false;
+                    isFiltering = false;
+                    lastKeyword = "";
+
                     currentPage = 1;
                     renderTablePage(currentPage);
                     reloadOrders();
+
                     return;
                 }
+                if (lastKeyword !== keyword) {
+                    isFilteringFromSMS = true;
+                    currentPage = 1;
+                    lastKeyword = keyword;
+
+                    if (fullOrders.length === 0) {
+                        reloadFullOrders();
+                    } else {
+                        filterSMSOrders(keyword);
+                    }
+                }
+
                 isFiltering = false;
                 isFilteringFromSMS  = true;
                 $('#searchInput').prop('disabled', true);
-
-                if (fullOrders.length === 0) {
-                    reloadFullOrders();
-                } else {
-                    filterSMSOrders(keyword);
-                }
+                $('#clearSearchBtn').prop('disabled', true);
+                $('#globalClearSearchBtn').prop('disabled', false);
             });
+
+            // $("#clearAll").click(function() {
+            //     const id = $("#accountId").val().trim();
+
+            //     const expiredOrders = [];
+
+            //     $("#rentedNumbersTable tr").each(function () {
+            //         const timeLeftSpan = $(this).find(".time-left");
+            //         if (timeLeftSpan.length === 0) return;
+
+            //         const timeLeft = parseInt(timeLeftSpan.data("timeleft"));
+            //         const orderId = timeLeftSpan.data("orderid");
+            //         const status = $(this).find("td:nth-child(7)").text().trim().toLowerCase();
+
+            //         if (timeLeft < 100 && (status.includes("pending") || status.includes("activating"))) {
+            //             expiredOrders.push({
+            //                 orderId: orderId,
+            //                 status: status,
+            //                 timeLeft: timeLeft
+            //             });
+            //         }
+            //     });
+            // });
+
+            // if (expiredOrders.length === 0) {
+            //     toastr.info("No expired orders to refund.");
+            //     return;
+            // }
+
+            // Swal.fire({
+            //     title: "Confirm refund",
+            //     text: `Refund ${expiredOrders.length} expired orders?`,
+            //     icon: "warning",
+            //     showCancelButton: true,
+            //     confirmButtonText: "Yes, refund all!"
+            // }).then((result) => {
+            //     if (result.isConfirmed) {
+            //         $.ajax({
+            //             type: "POST",
+            //             url: "/Rent/ClearExpiredOrders",
+            //             contentType: "application/json",
+            //             data: JSON.stringify(expiredOrders),
+            //             success: function (res) {
+            //                 if (res.success) {
+            //                     toastr.success(res.message);
+            //                     reloadOrders();
+            //                 } else {
+            //                     toastr.error(res.message);
+            //                 }
+            //             }
+            //         });
+            //     }
+            // });
 
             $("#clearSearchBtn").click(function () {
                 resetInputs();
                 $("#searchInput").val('');
                 $("#globalSearchInput").prop('disabled', false);
+                $('#globalClearSearchBtn').prop('disabled', false);
                 isFiltering = false;
                 isFilteringFromSMS = false;
                 currentPage = 1;
@@ -330,6 +421,7 @@
                 resetInputs();
                 $("#globalSearchInput").val('');
                 $("#searchInput").prop('disabled', false);
+                $('#clearSearchBtn').prop('disabled', false);
                 isFiltering = false;
                 isFilteringFromSMS = false;
                 currentPage = 1;
@@ -340,47 +432,101 @@
             $("form").on("submit", function (e) {
                 e.preventDefault(); // Prevent form submission
 
-                let token = getUserToken();
-                const id = $("#accountId").val().trim();
-                console.log("AccountId:", id);
+                // let token = getUserToken();
+                // const id = $("#accountId").val().trim();
 
-                $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token}, function (res) {
-                    if (res.success) {
-                        $("#phoneNumber").val(res.phoneNumber);
+                // $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token}, function (res) {
+                //     if (res.success) {
+                //         $("#phoneNumber").val(res.phoneNumber);
+                //         const orderId = res.orderId;
+                //         const orderCode = orderId;
+                //         let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
+                //         orderMap[orderCode] = orderId;
+                //         localStorage.setItem("orderMap", JSON.stringify(orderMap));
+                //         $("#phoneSection").show();
+                //         $("#getOtpBtn").data("order_id", res.orderId);
 
-                        const orderId = res.orderId;
-                        const orderCode = orderId;
+                //         reloadOrders();
 
-                        let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
-
-                        orderMap[orderCode] = orderId;
-
-                        localStorage.setItem("orderMap", JSON.stringify(orderMap));
-
-                        $("#phoneSection").show();
-
-                        $("#getOtpBtn").data("order_id", res.orderId);
-                        
-                        // load full rented number
-                        reloadOrders();
-                    } else {
-                        toastr.error("Error: " + res.message);
-                    }
-                });
+                //     } else {
+                //         toastr.error("Error: " + res.message);
+                //     }
+                // });
             });
+
+            $("#rentBtn").on("click", function () {
+               const count = parseInt($("#rentCount").val());
+               const token = getUserToken();
+               const id = $("#accountId").val();
+
+               console.log("Clicked rentBtn");
+               console.log("Count:", count);
+               console.log("Token:", token);
+               console.log("ID:", id);
+               if (isNaN(count) || count < 1) {
+                  toastr.error("Please enter valid number.");
+                  return;
+               }
+               if (!token || !id) {
+                  toastr.error("Missing account ID or token.");
+                  return;
+               }
+
+               if (count === 1) {
+                  rentOneNumber(id, token);
+               }else {
+                  rentMultipleNumbers(count, id, token);
+               }
+            });
+
+            function rentOneNumber(id, token) {
+                return new Promise((resolve, reject) => {
+                    $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token }, function (res) {
+                        if (res.success) {
+                            $("#phoneNumber").val(res.phoneNumber);
+                            $("#phoneSection").show();
+
+                            const orderId = res.orderId;
+                            const orderCode = res.orderCode || orderId;
+
+                            let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
+                            orderMap[orderCode] = orderId; 
+                            localStorage.setItem("orderMap", JSON.stringify(orderMap));
+
+                            $("#getOtpBtn").data("order_id", orderId);
+                            reloadOrders();
+
+                            resolve(res);
+                        } else {
+                            toastr.error("Error: " + res.message);
+                            reject(res.message);
+                        }
+                    });
+                });
+            }
+
+            async function rentMultipleNumbers(count, id, token) {
+                for(let i = 0; i < count; i++) {
+                   try {
+                      console.log(`Rending number ${i + 1}...`);
+                      await rentOneNumber(id, token);
+                   }
+                   catch (error) {
+                       console.warn("Rending fail:", error);
+                   }
+                   await new Promise(resolve => setTimeout(resolve, 2500));
+                }
+            }
 
             setInterval(function () {
                 if (!isFiltering && !isFilteringFromSMS) {
-                    reloadOrders();
+                   reloadOrders();
                 }
             }, 1000);
 
             $("#getOtpBtn").on("click", function() {
                 const id = $("#accountId").val().trim();
                 const orderId = $(this).data("order_id");
-
-                console.log("Sending orderId to server:", orderId);
-
                 startCountdown();
 
                 $.post('@Url.Action("GetOtp", "Rent")', { id: id, orderId: orderId }, function (res) 
@@ -395,6 +541,11 @@
                         }, 5000);
                     }
                 });
+            });
+
+            $("#clearBtn").on("click", function() {
+                $("#phoneNumber").val("");
+                $("#phoneSection").hide();
             });
 
             let countdownInterval;
@@ -417,19 +568,16 @@
                             });
                         }, 2000);
                     }
-                }, 1000);
+                }, 1000);   
             }
 
             $(document).on("click", ".clickable-phone", function () {
                 const phone = $(this).data("phone");
                 let orderId = $(this).data("orderid");
                 const orderCode = $(this).data("ordercode");
-
                 orderId = orderCode;
-
                 $("#phoneNumber").val(phone);
                 $("#phoneSection").show();
-
                 $("#getOtpBtn").data("order_id", orderId);
                 $("#ordersTable tbody tr").removeClass("table-active");
                 $(this).closest("tr").addClass("table-active");
@@ -439,9 +587,28 @@
                         toastr.success("Copied phone number: " + phone);
                     })
                     .catch(err => {
-                        console.error("Failed to copy phone number", err);
                         toastr.error("Failed to copy phone number");
                     });
+            });
+
+             $(document).on("click", ".clickable-code", function () {
+                const code = $(this).data("code");
+                if (code == '0') return;
+
+                let orderId = $(this).data("orderid");
+                const orderCode = $(this).data("ordercode");
+                orderId = orderCode;;
+                $("#getOtpBtn").data("order_id", orderId);
+                $("#ordersTable tbody tr").removeClass("table-active");
+                $(this).closest("tr").addClass("table-active");
+
+               navigator.clipboard.writeText(code)
+                    .then(() => {
+                        toastr.success("Copied code: " + code);
+                    })
+                    .catch(err => {
+                        toastr.error("Failed to copy code");
+               });
             });
 
 
@@ -463,9 +630,7 @@
                 const id = $("#accountId").val().trim();
                 const orderCode = $(this).data("ordercode");
                 let orderId = $(this).data("orderid");
-
                 orderId = orderCode;
-                console.log("Resend clicked:", { orderCode, orderId });
 
                 $.post('@Url.Action("ResendCode", "Rent")', { id: id, orderId: orderId }, function (res) {
                     if (res.success) {
@@ -478,14 +643,18 @@
 
             $(document).on('click', '.refund-btn', function () {
                 const orderCode = $(this).data("ordercode");
+                let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
                 let orderId = $(this).data("orderid");
 
-                let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
-                orderId = orderMap[orderCode];
+                console.log("Order map: ", orderMap[orderCode]);
+                if (orderMap[orderCode]) {
+                    orderId = orderMap[orderCode];
+                }
 
-                console.log("orderCode = ", orderCode);
-                console.log("Mapped orderId from orderCode = ", orderMap[orderCode]);
-                console.log("Actual sent orderId = ", orderId);
+                if (!orderId) {
+                    toastr.error("Order ID is missing. Cannot proceed with refund.");
+                    return;
+                }
 
                 const id = $("#accountId").val().trim();
                 Swal.fire({
@@ -525,11 +694,7 @@
                 );
             });
 
-            // console.log("Orders after filter: ", filteredOrders);
-
             const maxPage = Math.ceil(filteredOrders.length / pageSize);
-            console.log("Current Page: ", currentPage);
-
             if (currentPage > maxPage) {
                 currentPage = maxPage > 0 ? maxPage : 1;
             }
@@ -545,10 +710,9 @@
 
         function filterSMSOrders(keyword) {
             keyword = keyword.toLowerCase().trim();
-
-            // console.log("Full Orders: ", fullOrders);
-
             filteredOrders = fullOrders.filter(order => {
+                if (!order || typeof order !== "object") return false;
+
                 return (
                     (order.order_code && order.order_code?.toLowerCase().includes(keyword)) ||
                     (order.phonenumber && order.phonenumber?.toLowerCase().includes(keyword)) ||
@@ -559,11 +723,7 @@
                     (order.cost && order.cost?.toLowerCase().includes(keyword))
                 );
             });
-
-            // console.log("Full Orders after filter: ", filteredOrders);
-            // console.log("Page size: ", pageSize);
             const maxPage = Math.ceil(filteredOrders.length / pageSize);
-            // console.log(maxPage);
             if (currentPage > maxPage) {
                 currentPage = maxPage > 0 ? maxPage : 1;
             }
@@ -579,9 +739,7 @@
 
         function renderTablePage(page) {
             currentPage = page;
-
             let ordersToRender = [];
-
             if (isFilteringFromSMS) {
                 ordersToRender = filteredOrders;
             } else if (isFiltering) {
@@ -589,17 +747,12 @@
             } else {
                 ordersToRender = allOrders;
             }
-
             const totalPages = Math.ceil(ordersToRender.length / pageSize);
-
             if (page > totalPages) {
                 currentPage = 1;
             } else {
                 currentPage = page;
             }
-
-            // console.log("Orders after filter with SMSPools: ", ordersToRender);
-
             if (ordersToRender.length === 0) {
                 $("#rentedNumbersTable").html(`
                     <tr>
@@ -610,22 +763,15 @@
 
                 return;
             }
-
-            // console.log("Page size: ". pageSize);
-
             const start = (page - 1) * pageSize;
             const end = start + pageSize;
             const pagedData = ordersToRender.slice(start, end);
-            // console.log("Paged data: ", pagedData);
-
             let rows = "";
             let index = start + 1;
 
             pagedData.forEach(order => {
                 let statusBadge = "";
                 const status = order.status?.toLowerCase();
-
-                // console.log("Order: ", order);
                 const timeLeft = Number(order.time_left) || 0;
                 const createdAt = new Date();
 
@@ -660,13 +806,13 @@
                 }
                 let actionButton = "";
                 if (status === "pending" || status === "activating") {
-                    actionButton = `<button class="btn btn-sm btn-warning refund-btn"
+                    actionButton = `<button class="btn btn-sm btn-warning refund-btn fw-bold"
                                         data-ordercode="${order.order_code}"
                                         data-orderid="${order.order_id}">
                                             Refund
                                     </button>`;
                 } else {
-                    actionButton = `<button class="btn btn-sm btn-primary resend-btn-table"
+                    actionButton = `<button class="btn btn-sm btn-primary resend-btn-table fw-bold"
                                         data-ordercode="${order.order_code}"
                                         data-orderid="${order.order_id}">
                                             Resend
@@ -682,7 +828,11 @@
                                 data-ordercode="${order.order_code}">
                             <a href="javascript:void(0);" class="text-black text-decoration-none">${order.phonenumber}</a>
                         </td>
-                        <td>${order.code ?? ''}</td>
+                        <td class="clickable-code" data-code="${order.code}"
+                                data-orderid="${order.code}"
+                                data-ordercode="${order.code}">
+                            <a href="javascript:void(0);" class="text-black text-decoration-none">${order.code ?? ''}</a>
+                        </td>
                         <td>${order.country}</td>
                         <td>${order.service}</td>
                         <td>${statusBadge}</td>
@@ -708,8 +858,6 @@
             }
 
             const pageCount = Math.ceil(ordersToRender.length / pageSize);
-
-            // console.log("Page count: ", pageCount);
             let pagination = "";
 
             if (pageCount === 0) {

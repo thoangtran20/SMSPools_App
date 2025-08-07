@@ -133,39 +133,47 @@ namespace SMSPools_App.Controllers
 		}
 
 		[HttpPost]
-        public async Task<IActionResult> RefundOrder(string id, [FromForm] string orderId)
-        {
-            Console.WriteLine($"RefundOrder called with orderId={orderId}");
+		public async Task<IActionResult> RefundOrder(string id, [FromForm] string orderId)
+		{
+			Console.WriteLine($"RefundOrder called with orderId={orderId}");
 
-            if (string.IsNullOrEmpty(orderId))
-            {
-                return Json(new { status = false, message = "OrderId is required" });
-            }
+			if (string.IsNullOrEmpty(orderId))
+			{
+				return Json(new { status = false, message = "OrderId is required" });
+			}
 
-            var account = _accountService.GetAccountById(id);
-            if (account == null)
-            {
-                return Json(new { success = false, message = "Account not found" });
-            }
-            var result = await _smsApiService.RefundOrderAsync(orderId, account.ApiKey);
+			var account = _accountService.GetAccountById(id);
+			if (account == null)
+			{
+				return Json(new { success = false, message = "Account not found" });
+			}
+			bool success = await _smsApiService.RefundOrderAsync(orderId, account.ApiKey);
 
-            if (result.Success)
-            {
-                var itemToRemove = RentNumbers.FirstOrDefault(x => x.Order.OrderId == orderId);
-                if (itemToRemove != null) 
-                {
-                    RentNumbers.Remove(itemToRemove);
-                }
-				return Json(new { success = true, message = result.Message });
+			if (success)
+			{
+				var itemToRemove = RentNumbers.FirstOrDefault(x => x.Order.OrderId == orderId);
+				if (itemToRemove != null)
+				{
+					RentNumbers.Remove(itemToRemove);
+				}
+				return Json(new { success = true, message = "Cancel order and refund successful!!." });
 			}
 			else
-            {
-				return Json(new { success = false, message = result.Message });
+			{
+				return Json(new { success = false, message = "Cancel order failed!!." });
 			}
 		}
 
+		[HttpPost]
+		public async Task<IActionResult> ClearExpiredOrders(string id, [FromBody] List<SmsOrderResponse> orders)
+		{
+            var account = _accountService.GetAccountById(id);
 
-        public IActionResult Index(string id)
+			int refunded = await _smsApiService.ClearExpiredOrdersAsync(orders, account.ApiKey);
+
+			return Json(new { success = true, message = $"{refunded} orders refunded." });
+		}
+		public IActionResult Index(string id)
         {
             var account = _accountService.GetAccountById(id);
             if (account == null) return NotFound();
