@@ -8,8 +8,8 @@ namespace SMSPools_App.Services.Interfaces
         Task<bool> ResendCodeAsync(string orderId, string apiKey);
         Task<string?> GetOtpAsync(string orderId, string apiKey);
         Task<bool> RefundOrderAsync(string orderId, string apiKey);
-		Task<List<SmsOrderResponse>> GetAllOrdersAsync(string apiKey);
-        Task<int> ClearExpiredOrdersAsync(List<SmsOrderResponse> orders, string apiKey);
-		Task<List<SmsOrderResponse?>> GetAlRentNumbersAsync(string apiKey, string userToken);
+        Task<bool> CancelAllOrdersAsync(string apiKey);
+        Task<List<SmsOrderResponse>> GetAllOrdersAsync(string apiKey);
+        Task<List<SmsOrderResponse?>> GetAlRentNumbersAsync(string apiKey, string userToken);
     }
 }

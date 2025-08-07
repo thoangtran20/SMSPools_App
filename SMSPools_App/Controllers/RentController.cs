@@ -48,12 +48,12 @@ namespace SMSPools_App.Controllers
             var order = await _smsApiService.RentNumberAsync(account.ApiKey, userToken);
             Console.WriteLine("RECEIVED userToken: " + userToken);
 
-			if (order == null || !string.IsNullOrEmpty(order.ErrorMessage))
-			{
-				return Json(new { success = false, message = order?.ErrorMessage ?? "Failed to rent number" });
-			}
+            if (order == null || !string.IsNullOrEmpty(order.ErrorMessage))
+            {
+                return Json(new { success = false, message = order?.ErrorMessage ?? "Failed to rent number" });
+            }
 
-			return Json(new
+            return Json(new
             {
                 success = true,
                 phoneNumber = order.PhoneNumber,
@@ -102,13 +102,13 @@ namespace SMSPools_App.Controllers
             if (account == null)
             {
                 return Json(new { success = false, message = "Account not found" });
-            }   
+            }
             var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
-			var userOrders = orders.Where(o => o.UserToken == userToken).ToList();
+            var userOrders = orders.Where(o => o.UserToken == userToken).ToList();
 
-			int count = userOrders.Count;
+            int count = userOrders.Count;
 
-			if (orders == null)
+            if (orders == null)
             {
                 return Json(new { success = false, message = "Failed to retrieve orders" });
             }
@@ -116,64 +116,69 @@ namespace SMSPools_App.Controllers
         }
 
         [HttpPost]
-		public async Task<IActionResult> GetAllOrders(string id)
-		{
-			var account = _accountService.GetAccountById(id);
-			if (account == null)
-			{
-				return Json(new { success = false, message = "Account not found" });
-			}
-			var orders = await _smsApiService.GetAllOrdersAsync(account.ApiKey) ?? new List<SmsOrderResponse>();
+        public async Task<IActionResult> GetAllOrders(string id)
+        {
+            var account = _accountService.GetAccountById(id);
+            if (account == null)
+            {
+                return Json(new { success = false, message = "Account not found" });
+            }
+            var orders = await _smsApiService.GetAllOrdersAsync(account.ApiKey) ?? new List<SmsOrderResponse>();
 
-			if (orders == null)
-			{
-				return Json(new { success = false, message = "Failed to retrieve orders" });
-			}
-			return Json(new { success = true, orders = orders });
-		}
+            if (orders == null)
+            {
+                return Json(new { success = false, message = "Failed to retrieve orders" });
+            }
+            return Json(new { success = true, orders = orders });
+        }
 
-		[HttpPost]
-		public async Task<IActionResult> RefundOrder(string id, [FromForm] string orderId)
-		{
-			Console.WriteLine($"RefundOrder called with orderId={orderId}");
+        [HttpPost]
+        public async Task<IActionResult> RefundOrder(string id, [FromForm] string orderId)
+        {
+            Console.WriteLine($"RefundOrder called with orderId={orderId}");
 
-			if (string.IsNullOrEmpty(orderId))
-			{
-				return Json(new { status = false, message = "OrderId is required" });
-			}
+            if (string.IsNullOrEmpty(orderId))
+            {
+                return Json(new { status = false, message = "OrderId is required" });
+            }
 
-			var account = _accountService.GetAccountById(id);
-			if (account == null)
-			{
-				return Json(new { success = false, message = "Account not found" });
-			}
-			bool success = await _smsApiService.RefundOrderAsync(orderId, account.ApiKey);
+            var account = _accountService.GetAccountById(id);
+            if (account == null)
+            {
+                return Json(new { success = false, message = "Account not found" });
+            }
+            bool success = await _smsApiService.RefundOrderAsync(orderId, account.ApiKey);
 
-			if (success)
-			{
-				var itemToRemove = RentNumbers.FirstOrDefault(x => x.Order.OrderId == orderId);
-				if (itemToRemove != null)
-				{
-					RentNumbers.Remove(itemToRemove);
-				}
-				return Json(new { success = true, message = "Cancel order and refund successful!!." });
-			}
-			else
-			{
-				return Json(new { success = false, message = "Cancel order failed!!." });
-			}
-		}
+            if (success)
+            {
+                var itemToRemove = RentNumbers.FirstOrDefault(x => x.Order.OrderId == orderId);
+                if (itemToRemove != null)
+                {
+                    RentNumbers.Remove(itemToRemove);
+                }
+                return Json(new { success = true, message = "The order has been cancelled, and you have been refunded 0.14 dollars." });
+            }
+            else
+            {
+                return Json(new { success = false, message = "Your order cannot be cancelled yet, please try again later." });
+            }
+        }
 
-		[HttpPost]
-		public async Task<IActionResult> ClearExpiredOrders(string id, [FromBody] List<SmsOrderResponse> orders)
-		{
+        [HttpPost]
+        public async Task<IActionResult> CancelAllOrders(string id)
+        {
             var account = _accountService.GetAccountById(id);
 
-			int refunded = await _smsApiService.ClearExpiredOrdersAsync(orders, account.ApiKey);
+            var success = await _smsApiService.CancelAllOrdersAsync(account.ApiKey);
 
-			return Json(new { success = true, message = $"{refunded} orders refunded." });
-		}
-		public IActionResult Index(string id)
+            return Json(new
+            {
+                success = success,
+                message = success ? "All orders cancelled successfully." : "All orders have already been cancelled."
+            });
+        }
+
+        public IActionResult Index(string id)
         {
             var account = _accountService.GetAccountById(id);
             if (account == null) return NotFound();

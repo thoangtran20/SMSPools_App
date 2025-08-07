@@ -54,7 +54,7 @@
                     <h3>Rented Numbers</h3>
                 </div>
                 <div class="col-md-4">
-                    <button class="btn btn-danger" id="clearAll">Clear All Data</button>
+                    <button class="btn btn-danger" id="clearAllBtn">Clear All Data</button>
                 </div>
             </div>
             <div class="row mt-2">
@@ -352,58 +352,30 @@
                 $('#globalClearSearchBtn').prop('disabled', false);
             });
 
-            // $("#clearAll").click(function() {
-            //     const id = $("#accountId").val().trim();
+            $("#clearAllBtn").click(function() {
+                const id = $("#accountId").val().trim();
+                Swal.fire({
+                    title: "Are you sure?",
+                    text: "Do you want to cancel all pending orders?",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes, cancel it!",
+                    cancelButtonText: "Cancel"
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('@Url.Action("CancelAllOrders", "Rent")', { id: id }, function (res) {
+                            console.log("Response:", res);
 
-            //     const expiredOrders = [];
-
-            //     $("#rentedNumbersTable tr").each(function () {
-            //         const timeLeftSpan = $(this).find(".time-left");
-            //         if (timeLeftSpan.length === 0) return;
-
-            //         const timeLeft = parseInt(timeLeftSpan.data("timeleft"));
-            //         const orderId = timeLeftSpan.data("orderid");
-            //         const status = $(this).find("td:nth-child(7)").text().trim().toLowerCase();
-
-            //         if (timeLeft < 100 && (status.includes("pending") || status.includes("activating"))) {
-            //             expiredOrders.push({
-            //                 orderId: orderId,
-            //                 status: status,
-            //                 timeLeft: timeLeft
-            //             });
-            //         }
-            //     });
-            // });
-
-            // if (expiredOrders.length === 0) {
-            //     toastr.info("No expired orders to refund.");
-            //     return;
-            // }
-
-            // Swal.fire({
-            //     title: "Confirm refund",
-            //     text: `Refund ${expiredOrders.length} expired orders?`,
-            //     icon: "warning",
-            //     showCancelButton: true,
-            //     confirmButtonText: "Yes, refund all!"
-            // }).then((result) => {
-            //     if (result.isConfirmed) {
-            //         $.ajax({
-            //             type: "POST",
-            //             url: "/Rent/ClearExpiredOrders",
-            //             contentType: "application/json",
-            //             data: JSON.stringify(expiredOrders),
-            //             success: function (res) {
-            //                 if (res.success) {
-            //                     toastr.success(res.message);
-            //                     reloadOrders();
-            //                 } else {
-            //                     toastr.error(res.message);
-            //                 }
-            //             }
-            //         });
-            //     }
-            // });
+                            if (res.success === true) {
+                                toastr.success(res.message);
+                                reloadOrders();
+                            } else {
+                                toastr.error("Cancel failed: " + res.message);
+                            }
+                        });
+                    }
+                });
+            });
 
             $("#clearSearchBtn").click(function () {
                 resetInputs();
@@ -431,27 +403,6 @@
 
             $("form").on("submit", function (e) {
                 e.preventDefault(); // Prevent form submission
-
-                // let token = getUserToken();
-                // const id = $("#accountId").val().trim();
-
-                // $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token}, function (res) {
-                //     if (res.success) {
-                //         $("#phoneNumber").val(res.phoneNumber);
-                //         const orderId = res.orderId;
-                //         const orderCode = orderId;
-                //         let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
-                //         orderMap[orderCode] = orderId;
-                //         localStorage.setItem("orderMap", JSON.stringify(orderMap));
-                //         $("#phoneSection").show();
-                //         $("#getOtpBtn").data("order_id", res.orderId);
-
-                //         reloadOrders();
-
-                //     } else {
-                //         toastr.error("Error: " + res.message);
-                //     }
-                // });
             });
 
             $("#rentBtn").on("click", function () {
@@ -591,7 +542,7 @@
                     });
             });
 
-             $(document).on("click", ".clickable-code", function () {
+            $(document).on("click", ".clickable-code", function () {
                 const code = $(this).data("code");
                 if (code == '0') return;
 
