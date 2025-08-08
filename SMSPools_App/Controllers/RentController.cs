@@ -169,9 +169,16 @@ namespace SMSPools_App.Controllers
         {
             var account = _accountService.GetAccountById(id);
 
-            var success = await _smsApiService.CancelAllOrdersAsync(account.ApiKey);
+			var orders = await _smsApiService.GetAllOrdersAsync(account.ApiKey);
 
-            return Json(new
+			if (!orders.All(o => o.TimeLeft < 500))
+			{
+				return Json(new { success = false, message = "Some orders have more than 5 minutes remaining. Cancel not allowed." });
+			}
+
+			var success = await _smsApiService.CancelAllOrdersAsync(account.ApiKey);
+
+			return Json(new
             {
                 success = success,
                 message = success ? "All orders cancelled successfully." : "All orders have already been cancelled."

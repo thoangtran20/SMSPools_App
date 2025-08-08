@@ -48,23 +48,26 @@
 
         <div class="col-md-1"></div>
 
-        <div class="col-md-8">
+        <div class="col-md-8">  
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-4 ml-2">
                     <h3>Rented Numbers</h3>
                 </div>
-                <div class="col-md-4">
-                    <button class="btn btn-danger" id="clearAllBtn">Clear All Data</button>
+                <div class="col-md-8 ml-2">
+                    <button id="clearAllBtn" class="btn btn-danger fw-bold">Clear All Data</button>
+                    <button id="downloadBtn" class="btn btn-warning ml-2 fw-bold">
+                        <i class="fas fa-download"></i> Download All
+                    </button>
                 </div>
             </div>
             <div class="row mt-2">
                 <div class="col-md-6 d-flex">
                     <input type="text" id="searchInput" class="form-control" placeholder="Search..." style="width: 350px;" />
-                    <button class="btn btn-secondary" id="clearSearchBtn">Clear</button>
+                    <button id="clearSearchBtn" class="btn btn-secondary fw-bold">Clear</button>
                 </div>
                 <div class="col-md-6 d-flex">
                     <input type="text" id="globalSearchInput" class="form-control" placeholder="Search with SMSPools..." style="width: 350px;" />
-                    <button class="btn btn-secondary" id="globalClearSearchBtn">Clear</button>
+                    <button id="globalClearSearchBtn" class="btn btn-secondary fw-bold">Clear</button>
                 </div>
             </div>
 
@@ -212,12 +215,16 @@
         function reloadOrders() {
             const id = $("#accountId").val();
             const token = getUserToken();
-
             const currentPageBeforeReload = currentPage;
 
             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: token }, function (result) {
                 if (result.success && result.orders) {
                     allOrders = result.orders;
+                    if (allOrders.length > 0) {
+                        $("#downloadBtn").prop("disabled", false);
+                    } else {
+                        $("#downloadBtn").prop("disabled", true);
+                    }
                     if (isFiltering) {
                         const keyword = $("#searchInput").val().toLowerCase().trim();
                         filterOrders(keyword);
@@ -230,7 +237,8 @@
                     }
 
                     updateTimeLeft();
-                } else {    
+                } else {
+                    $("#downloadBtn").prop("disabled", true);
                     console.log("No orders found or failed to load.");
                 }
             });
@@ -238,13 +246,18 @@
 
         function reloadFullOrders() {
             const id = $("#accountId").val();
-
             const currentPageBeforeReload = currentPage;
 
             $.post('@Url.Action("GetAllOrders", "Rent")', { id: id }, function (result)
             {
                 if (result.success && result.orders) {
                     fullOrders = result.orders;
+                    if (allOrders.length > 0) {
+                        $("#downloadBtn").prop("disabled", false);
+                    } else {
+                        $("#downloadBtn").prop("disabled", true);
+                    }
+                    $("#downloadBtn").prop("disabled", allOrders.length === 0);
                     isFilteringFromSMS = true;
                     if (isFilteringFromSMS) {
                         const keyword = $("#globalSearchInput").val().toLowerCase().trim();
@@ -258,6 +271,7 @@
                     }
                     updateTimeLeft();
                 } else {
+                    $("#downloadBtn").prop("disabled", true);
                     console.error("Failed to reload full orders:", result.message);
                 }
             });
@@ -265,12 +279,9 @@
 
         $(document).ready(function () {
             const userToken = getUserToken();
-
             const id = $("#accountId").val().trim();
+            $("#downloadBtn").prop("disabled", true);
             const orderMap = {}
-
-            reloadOrders();
-
             let lastKeyword = "";
 
             $("#searchInput").on("input", function() {
@@ -430,6 +441,66 @@
                }
             });
 
+            $("#downloadBtn").on("click", function() {
+                let dataToDownload = [];
+                if (isFilteringFromSMS || isFiltering) {
+                    dataToDownload = filteredOrders;
+                } else {
+                    dataToDownload = allOrders;
+                }
+                downloadCSV(dataToDownload);   
+            });
+
+            function downloadCSV(data) {
+                console.log("Data to download: ", data);
+                if (!data || data.length === 0) {
+                    toastr.error("No data to download");
+                    return;
+                } else {
+                    toastr.success("Download data successful");
+                    let headers = [
+                        "Id",
+                        "Order Code",
+                        "Phone Number",
+                        "Code",
+                        "Country",
+                        "Service",
+                        "Status",
+                        "Cost"
+                    ]
+
+                    let rows = data.map(order => {
+                        return [
+                            order.id,
+                            order.order_code,
+                            order.phonenumber,
+                            order.code,
+                            order.country,
+                            order.service,
+                            order.status,
+                            order.cost
+                        ];
+                    });
+
+                    console.log("Rows data to csv: ", rows);
+
+                    let separator = ";";
+                    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+                        + headers.join(separator) + "\n"
+                        + rows.map(e => e.join(separator)).join("\n");
+
+                    console.log("CSV Content: ", csvContent);
+
+                    const encodeUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodeUri);
+                    link.setAttribute("download", "orders.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }   
+            }
+
             function rentOneNumber(id, token) {
                 return new Promise((resolve, reject) => {
                     $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token }, function (res) {
@@ -471,7 +542,7 @@
 
             setInterval(function () {
                 if (!isFiltering && !isFilteringFromSMS) {
-                   reloadOrders();
+                    reloadOrders();
                 }
             }, 1000);
 
@@ -651,8 +722,10 @@
             }
 
             if (filteredOrders.length === 0) {
+                $("#downloadBtn").prop("disabled", true);
                 $("#pageInfo").text("").hide();
             } else {
+                $("#downloadBtn").prop("disabled", false);
                 $("#pageInfo").text(`Page ${currentPage} of ${maxPage || 1}`).show();
 
             }
@@ -680,8 +753,10 @@
             }
 
             if (filteredOrders.length === 0) {
+                $("#downloadBtn").prop("disabled", true);
                 $("#pageInfo").text("").hide();
             } else {
+                $("#downloadBtn").prop("disabled", false);
                 $("#pageInfo").text(`Page ${currentPage} of ${maxPage || 1}`).show();
 
             }
@@ -927,16 +1002,13 @@
                     timeLeft--;
                     el.textContent = `(${timeLeft}s)`;
 
-                    if (timeLeft <= 0) {
+                    if (timeLeft > 0) {
+                        el.textContent = `(${timeLeft}s)`;
+                    } else {
                         clearInterval(countdownTimers[orderId]);
-                        el.textContent = `(Expired)`;
-
-                        const badge = el.closest('.badge');
-                        if (badge) {
-                            badge.classList.remove('badge-warning', 'badge-info');
-                            badge.classList.add('badge-secondary');
-                            badge.innerHTML = `Expired`;
-                        }
+                        el.textContent = "(Expired)";
+                        // Optional: trigger refresh when expired
+                        reloadOrders();
                     }
                 }, 1000);
             });
