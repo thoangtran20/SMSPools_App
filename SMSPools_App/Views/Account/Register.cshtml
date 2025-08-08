@@ -1,0 +1,42 @@
+﻿@{
+    var userToken = (string)Context.Request.Query["userToken"];
+    ViewData["Title"] = "Register / Receive Code";
+}
+
+<h2 class="mb-4 text-center">@ViewData["Title"]</h2>
+
+<div class="d-flex justify-content-center">
+    <form method="post" asp-controller="Account" asp-action="Register" class="w-100" style="max-width: 400px;">
+        <input type="hidden" name="userToken" value="@ViewData["UserToken"]" />
+        <div class="mb-3">
+            <label for="email" class="form-label">Your Email</label>
+            <input type="email" class="form-control" id="email" name="email" placeholder="Nhập email của bạn" required />
+        </div>
+        <button type="submit" id="btnSubmit" class="btn btn-primary w-100">Send Code</button>
+
+        @if (ViewBag.Message != null)
+        {
+            <div class="alert alert-success mt-3" role="alert">
+                @ViewBag.Message
+            </div>
+        }
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="alert alert-danger mt-3">
+                <ul class="mb-0">
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <li>@error.ErrorMessage</li>
+                    }
+                </ul>
+            </div>
+        }
+    </form>
+</div>
+
+@* <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+ *@
+@section Scripts {
+
+}

@@ -21,10 +21,10 @@ else
 
 
 @section Scripts {
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+@*     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
-
+ *@
     <script>
         $(document).ready(function () {
             $('.rent-btn').on('click', function (e) {
@@ -32,7 +32,6 @@ else
 
                 const id = $(this).data('id');
 
-                // Kiểm tra và tạo userToken nếu chưa có
                 let userToken = localStorage.getItem('userToken');
                 if (!userToken) {
                     userToken = 'token_' + Math.random().toString(36).substr(2, 9);
@@ -40,9 +39,14 @@ else
                     toastr.success("New user token created.");
                 }
 
-                const url = `/Home/Rent?id=${id}&userToken=${encodeURIComponent(userToken)}`;
-                console.log("Redirecting to:", url);
-                window.location.href = url;
+                $.getJSON(`/Home/CheckUserTokenRegistered?userToken=${encodeURIComponent(userToken)}`, function (data) {
+                    if (data.registered) {
+                        toastr.success("User token is already registered.");
+                        window.location.href = `/Account/Login?userToken=${encodeURIComponent(userToken)}&accId=${id}`;
+                    } else {
+                        window.location.href = `/Account/Register?userToken=${encodeURIComponent(userToken)}&accId=${id}`;
+                    }
+                });
             });
         });
     </script>

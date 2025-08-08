@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SMSPools_App.Data;
 using SMSPools_App.Models;
 using SMSPools_App.Services;
 using SMSPools_App.Services.Interfaces;
@@ -11,14 +12,28 @@ namespace SMSPools_App.Controllers
     {
 		private readonly SmsAccountService _smsAccountService;
 		private readonly ISmsApiService _smsApiService;
+		private readonly ApplicationDbContext _context;
 
-
-		public HomeController(IWebHostEnvironment env, ISmsApiService smsApiService)
+		public HomeController(IWebHostEnvironment env, ISmsApiService smsApiService, ApplicationDbContext context)
 		{
 			_smsAccountService = new SmsAccountService(env);
 			_smsApiService = smsApiService;
+			_context = context;
 		}
-		
+
+		[HttpGet]
+		public IActionResult CheckUserTokenRegistered(string userToken)
+		{
+			if (string.IsNullOrEmpty(userToken))
+				return Json(new { registered = false });
+
+			var entry = _context.UserTokenEntries
+				.FirstOrDefault(u => u.UserToken == userToken && u.IsRegistered);
+
+			bool registered = entry != null;
+
+			return Json(new { registered });
+		}
 
 		public IActionResult Index()
 		{

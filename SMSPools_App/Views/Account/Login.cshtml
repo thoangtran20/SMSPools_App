@@ -1,0 +1,61 @@
+﻿@{
+    var userToken = (string)Context.Request.Query["userToken"];
+    ViewData["UserToken"] = userToken;
+    ViewData["Title"] = "Login with token";
+}
+
+<h2 class="mb-4 text-center">@ViewData["Title"]</h2>
+
+<div class="d-flex justify-content-center">
+    <form method="post" asp-controller="Account" asp-action="Login" class="w-100" style="max-width: 400px;">
+        <input type="hidden" name="userToken" value="@ViewData["UserToken"]" />
+        <input type="hidden" name="accId" value="@Context.Request.Query["accId"]" />
+
+        <div class="mb-3">
+            <label for="email" class="form-label">Your Email</label>
+            <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required />
+        </div>
+        <div class="mb-3">
+            <label for="token" class="form-label">Login Code</label>
+            <input type="text" class="form-control" id="token" name="token" placeholder="Enter your code" required />
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mb-2">Login</button>
+        <button id="btnResendCode" type="button" class="btn btn-link mb-2">Resend Code</button>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="alert alert-danger mt-3">
+                <ul class="mb-0">
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <li>@error.ErrorMessage</li>
+                    }
+                </ul>
+            </div>
+        }
+    </form>
+</div>
+
+@* <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+ *@
+@section Scripts {
+   <script>
+        $('#btnResendCode').click(function() {
+            var email = $('#email').val();
+            var userToken = '@ViewData["UserToken"]';
+
+            if (!email) {
+                toastr.info("Please enter email to receive login code.");
+                return;
+            }
+
+            $.post('/Account/ResendCode', { email: email, userToken: userToken }, function (data) {
+                if (data.success) {
+                    toastr.success(data.message);
+                } else {
+                    toastr.error("Error: " + data.message);
+                }
+            });
+        });
+    </script>
+}
