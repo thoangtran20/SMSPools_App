@@ -1,64 +1,66 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SMSPools_App.Data;
 using SMSPools_App.Models;
 using SMSPools_App.Services;
 using SMSPools_App.Services.Interfaces;
-using System.Diagnostics;
-using System.Threading.Tasks;
 
 namespace SMSPools_App.Controllers
 {
     public class HomeController : Controller
     {
-		private readonly SmsAccountService _smsAccountService;
-		private readonly ISmsApiService _smsApiService;
-		private readonly ApplicationDbContext _context;
+        private readonly SmsAccountService _smsAccountService;
+        private readonly ISmsApiService _smsApiService;
+        private readonly ApplicationDbContext _context;
 
-		public HomeController(IWebHostEnvironment env, ISmsApiService smsApiService, ApplicationDbContext context)
-		{
-			_smsAccountService = new SmsAccountService(env);
-			_smsApiService = smsApiService;
-			_context = context;
-		}
+        public HomeController(IWebHostEnvironment env, ISmsApiService smsApiService, ApplicationDbContext context)
+        {
+            _smsAccountService = new SmsAccountService(env);
+            _smsApiService = smsApiService;
+            _context = context;
+        }
 
-		[HttpGet]
-		public IActionResult CheckUserTokenRegistered(string userToken)
-		{
-			if (string.IsNullOrEmpty(userToken))
-				return Json(new { registered = false });
+        [HttpGet]
+        public IActionResult CheckUserTokenRegistered(string userToken)
+        {
+            if (string.IsNullOrEmpty(userToken))
+                return Json(new { registered = false });
 
-			var entry = _context.UserTokenEntries
-				.FirstOrDefault(u => u.UserToken == userToken && u.IsRegistered);
+            var entry = _context.UserTokenEntries
+                .FirstOrDefault(u => u.UserToken == userToken && u.IsRegistered);
 
-			bool registered = entry != null;
+            bool registered = entry != null;
 
-			return Json(new { registered });
-		}
+            bool isAuthenticated = User.Identity.IsAuthenticated;
 
-		public IActionResult Index()
-		{
-			var accounts = _smsAccountService.GetAllAccounts();
-			return View(accounts);
-		}
+            return Json(new { registered, isAuthenticated });
+        }
 
-		public async Task<IActionResult> Rent(string id, string userToken)
-		{
-			var account = _smsAccountService.GetAccountById(id);
-			if (account == null)
-			{
-				return NotFound();
-			}
+        public IActionResult Index()
+        {
+            var accounts = _smsAccountService.GetAllAccounts();
+            return View(accounts);
+        }
 
-			var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken);
+        [Authorize]
+        public async Task<IActionResult> Rent(string id, string userToken)
+        {
+            var account = _smsAccountService.GetAccountById(id);
+            if (account == null)
+            {
+                return NotFound();
+            }
 
-			var viewModel = new RentNumberViewModel
-			{
-				Account = account,
-				Order = null,
-				Orders = orders
-			};
+            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken);
 
-			return View("Rent", viewModel);
-		}
-	}
+            var viewModel = new RentNumberViewModel
+            {
+                Account = account,
+                Order = null,
+                Orders = orders
+            };
+
+            return View("Rent", viewModel);
+        }
+    }
 }
