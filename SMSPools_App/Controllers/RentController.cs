@@ -133,7 +133,7 @@ namespace SMSPools_App.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> RefundOrder(string id, [FromForm] string orderId)
+        public async Task<IActionResult> RefundOrder(string id, string orderId)
         {
             Console.WriteLine($"RefundOrder called with orderId={orderId}");
 

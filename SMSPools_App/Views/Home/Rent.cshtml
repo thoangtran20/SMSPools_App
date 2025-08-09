@@ -220,6 +220,10 @@
             $.post('@Url.Action("GetAllRentedNumbers", "Rent")', { id: id, userToken: token }, function (result) {
                 if (result.success && result.orders) {
                     allOrders = result.orders;
+
+                    // sync mapping
+                    syncOrderMap(allOrders);
+
                     if (allOrders.length > 0) {
                         $("#downloadBtn").prop("disabled", false);
                     } else {
@@ -248,16 +252,18 @@
             const id = $("#accountId").val();
             const currentPageBeforeReload = currentPage;
 
-            $.post('@Url.Action("GetAllOrders", "Rent")', { id: id }, function (result)
-            {
+            $.post('@Url.Action("GetAllOrders", "Rent")', { id: id }, function (result) {
                 if (result.success && result.orders) {
                     fullOrders = result.orders;
-                    if (allOrders.length > 0) {
+
+                    // sync mapping
+                    syncOrderMap(fullOrders);
+
+                    if (fullOrders.length > 0) {
                         $("#downloadBtn").prop("disabled", false);
                     } else {
                         $("#downloadBtn").prop("disabled", true);
                     }
-                    $("#downloadBtn").prop("disabled", allOrders.length === 0);
                     isFilteringFromSMS = true;
                     if (isFilteringFromSMS) {
                         const keyword = $("#globalSearchInput").val().toLowerCase().trim();
@@ -276,6 +282,23 @@
                 }
             });
         }
+
+        // sync mapping function
+        function syncOrderMap(orders) {
+            let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
+
+            orders.forEach(o => {
+                const cleanCode = (o.orderCode || "").trim();
+                const cleanId = (o.orderId || "").trim();
+                if (cleanCode && cleanId) {
+                    orderMap[cleanCode] = cleanId;
+                    orderMap[cleanId] = cleanId;
+                }
+            });
+
+            localStorage.setItem("orderMap", JSON.stringify(orderMap));
+        }
+
 
         $(document).ready(function () {
             const userToken = getUserToken();
@@ -511,9 +534,18 @@
                             const orderId = res.orderId;
                             const orderCode = res.orderCode || orderId;
 
-                            let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
-                            orderMap[orderCode] = orderId; 
-                            localStorage.setItem("orderMap", JSON.stringify(orderMap));
+                            const cleanCode = (orderCode || "").trim();
+                            const cleanId = (orderId || "").trim();
+
+                            if (cleanCode && cleanId) {
+                                let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
+                                orderMap[cleanCode] = cleanId;
+                                orderMap[cleanId] = cleanId;
+                                localStorage.setItem("orderMap", JSON.stringify(orderMap));
+                            }
+
+                            console.log("Order map orderCode: ", orderMap[orderCode]);
+                            console.log("Order map orderId: ", orderMap[orderCode]);
 
                             $("#getOtpBtn").data("order_id", orderId);
                             reloadOrders();
@@ -665,11 +697,14 @@
 
             $(document).on('click', '.refund-btn', function () {
                 const orderCode = $(this).data("ordercode");
+                console.log("Order code: ", orderCode);
                 let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
                 let orderId = $(this).data("orderid");
 
-                console.log("Order map: ", orderMap[orderCode]);
-                if (orderMap[orderCode]) {
+                console.log("Order map orderCode: ", orderMap[orderCode]);
+                console.log("Order map orderId: ", orderMap[orderCode]);
+
+                if (!orderId && orderMap[orderCode]) {
                     orderId = orderMap[orderCode];
                 }
 
@@ -689,16 +724,24 @@
                 }).then((result) => {
                       if (result.isConfirmed) {
                           $.post('@Url.Action("RefundOrder", "Rent")', { id: id, orderId: orderId }, function (res) {
-                             if (res.success === true || res.message.includes("already been refunded")) {
+                             if (res.success === true || (res.message && res.message.includes("already been refunded"))) {
                                 toastr.success(res.message);
                                 reloadOrders();
                              } else {
+                                if (res.message && res.message.includes("cannot be cancelled yet")) {
+                                    const stillExists = allOrders.some(o => o.orderId === orderId);
+                                    if (!stillExists) {
+                                        toastr.info("Order has been cancelled.");
+                                        reloadOrders();
+                                        return;
+                                    }
+                                }
                                 toastr.error("Refund failed: " + res.message);
                              }
-                            });
-                       }
-                    });
+                          });
+                      }
                 });
+            });
         });
 
         function filterOrders(keyword) {

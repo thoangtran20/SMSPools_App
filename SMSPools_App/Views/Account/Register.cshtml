@@ -10,7 +10,7 @@
         <input type="hidden" name="userToken" value="@ViewData["UserToken"]" />
         <div class="mb-3">
             <label for="email" class="form-label">Your Email</label>
-            <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required />
+            <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" />
         </div>
         <button type="submit" id="btnSubmit" class="btn btn-primary w-100">Send Code</button>
 
@@ -21,7 +21,7 @@
             </div>
         }
 
-        @if (!ViewData.ModelState.IsValid)
+        @if (ViewData["HasSubmitted"] != null && !ViewData.ModelState.IsValid)
         {
             <div class="alert alert-danger mt-3">
                 <ul class="mb-0">

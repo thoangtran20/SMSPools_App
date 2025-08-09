@@ -14,16 +14,19 @@
         <div class="mb-3">
             <label for="email" class="form-label">Your Email</label>
             <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email"
-                   value="@ViewData["Email"]" required />
+                   value="@ViewData["Email"]" />
         </div>
         <div class="mb-3">
             <label for="token" class="form-label">Login Code</label>
-            <input type="text" class="form-control" id="token" name="token" placeholder="Enter your code" required />
+            <input type="text" class="form-control" id="token" name="token" placeholder="Enter your code" />
         </div>
         <button type="submit" class="btn btn-primary w-100 mb-2">Login</button>
         <button id="btnResendCode" type="button" class="btn btn-link mb-2">Resend Code</button>
 
-        @if (!ViewData.ModelState.IsValid)
+        <div class="mt-3">
+            <strong>Your login code is:</strong> <span class="text-danger" id="displayCode"></span>
+        </div>
+        @if (ViewData["HasSubmitted"] != null && !ViewData.ModelState.IsValid)
         {
             <div class="alert alert-danger mt-3">
                 <ul class="mb-0">
@@ -51,8 +54,10 @@
             }
 
             $.post('/Account/ResendCode', { email: email, userToken: userToken }, function (data) {
+                console.log("Data: ", data);
                 if (data.success) {
-                    toastr.success(data.message);
+                    toastr.success(data.message + " - Your code is: " + data.code);
+                    $('#displayCode').text(data.code).show();
                 } else {
                     toastr.error("Error: " + data.message);
                 }

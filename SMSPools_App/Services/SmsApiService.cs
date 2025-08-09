@@ -25,7 +25,6 @@ namespace SMSPools_App.Services
         public async Task<SmsOrderResponse?> RentNumberAsync(string apiKey, string userToken)
         {
             var requestUrl = "https://api.smspool.net/purchase/sms";
-
             var tokenStore = GetTokenStore(apiKey, userToken);
 
             var parameters = new Dictionary<string, string>
@@ -78,27 +77,34 @@ namespace SMSPools_App.Services
                 try
                 {
                     var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
-                    if (order != null &&
-                        !string.IsNullOrEmpty(order.PhoneNumber) &&
-                        !PhoneNumberHelper.IsBlockedNumber(order.PhoneNumber))
-                    {
-                        var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
-                        if (!string.IsNullOrEmpty(key))
-                        {
-                            tokenStore.Save(key, userToken);
-                            order.UserToken = userToken;
-                        }
-                        Console.WriteLine($"Success after {i + 1} tries. Blocked count: {blockedCount}");
-                        return order;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Blocked or invalid number detected: {order?.PhoneNumber}. Retrying...");
-                        blockedNumbers.Add(order?.PhoneNumber ?? "null");
-                        blockedCount++;
-                        continue;
-                    }
-                }
+					if (order != null && !string.IsNullOrEmpty(order.PhoneNumber))
+					{
+						if (!PhoneNumberHelper.IsBlockedNumber(order.PhoneNumber))
+						{
+							var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
+							if (!string.IsNullOrEmpty(key))
+							{
+								tokenStore.Save(key, userToken);
+								order.UserToken = userToken;
+							}
+							Console.WriteLine($"Success after {i + 1} tries. Blocked count: {blockedCount}");
+							return order;
+						}
+						else
+						{
+    						if (!string.IsNullOrEmpty(order.OrderId))
+							{
+								bool refunded = await RefundOrderAsync(order.OrderId, apiKey);
+								Console.WriteLine($"[AutoRefund] Blocked number {order.PhoneNumber} (OrderId={order.OrderId}) refunded={refunded}");
+							}
+
+							blockedNumbers.Add(order.PhoneNumber);
+							blockedCount++;
+							Console.WriteLine($"Blocked number detected: {order.PhoneNumber}. Retrying...");
+							continue;
+						}
+					}
+				}
                 catch (Exception ex1)
                 {
                     Console.WriteLine("Failed to parse as single object: " + ex1.Message);
@@ -241,52 +247,53 @@ namespace SMSPools_App.Services
             }
             return orders?.Where(o => o.UserToken == userToken).ToList() ?? new List<SmsOrderResponse>();
         }
+            
         public async Task<bool> RefundOrderAsync(string orderId, string apiKey)
-        {
-            var url = "https://api.smspool.net/sms/cancel";
+		{
+			var url = "https://api.smspool.net/sms/cancel";
 
-            var parameters = new Dictionary<string, string>
-            {
-                { "orderid", orderId },
-                { "key", apiKey }
-            };
+			var parameters = new Dictionary<string, string>
+				{
+					{ "orderid", orderId },
+					{ "key", apiKey }
+				};
 
-            using var httpClient = new HttpClient();
-            using var content = new FormUrlEncodedContent(parameters);
+			using var httpClient = new HttpClient();
+			using var content = new FormUrlEncodedContent(parameters);
 
-            var response = await httpClient.PostAsync(url, content);
-            var json = await response.Content.ReadAsStringAsync();
+			var response = await httpClient.PostAsync(url, content);
+			var json = await response.Content.ReadAsStringAsync();
 
-            Console.WriteLine("REFUND JSON RESPONSE: " + json);
+			Console.WriteLine("REFUND JSON RESPONSE: " + json);
 
-            if (!response.IsSuccessStatusCode) return false;
+			if (!response.IsSuccessStatusCode) return false;
 
-            try
-            {
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("message", out var messageElement))
-                {
-                    Console.WriteLine("Refund message: " + messageElement.ToString());
-                }
+			try
+			{
+				using var doc = JsonDocument.Parse(json);
+				if (doc.RootElement.TryGetProperty("message", out var messageElement))
+				{
+					Console.WriteLine("Refund message: " + messageElement.ToString());
+				}
 
-                if (doc.RootElement.TryGetProperty("success", out var successElement))
-                {
-                    var success = successElement.ToString() == "1";
-                    if (!success)
-                    {
-                        Console.WriteLine("Refund failed with message: " + messageElement.ToString());
-                    }
-                    return success;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("RefundOrderAsync ERROR: " + ex.Message);
-            }
-            return false;
-        }
+				if (doc.RootElement.TryGetProperty("success", out var successElement))
+				{
+					var success = successElement.ToString() == "1";
+					if (!success)
+					{
+						Console.WriteLine("Refund failed with message: " + messageElement.ToString());
+					}
+					return success;
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("RefundOrderAsync ERROR: " + ex.Message);
+			}
+			return false;
+		}
 
-        public async Task<bool> CancelAllOrdersAsync(string apiKey)
+		public async Task<bool> CancelAllOrdersAsync(string apiKey)
         {
             var url = "https://api.smspool.net/sms/cancel_all";
 
@@ -331,7 +338,6 @@ namespace SMSPools_App.Services
 
             return false;
         }
-
 
         public async Task<List<SmsOrderResponse>> GetAllOrdersAsync(string apiKey)
         {
