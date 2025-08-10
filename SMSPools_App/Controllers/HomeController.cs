@@ -51,7 +51,7 @@ namespace SMSPools_App.Controllers
                 return NotFound();
             }
 
-            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken);
+            var orders = await _smsApiService.GetAllRentNumbersAsync(account.ApiKey, userToken);
 
             var viewModel = new RentNumberViewModel
             {

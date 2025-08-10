@@ -24,7 +24,7 @@ namespace SMSPools_App.Controllers
             if (account == null)
                 return NotFound();
 
-            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken);
+            var orders = await _smsApiService.GetAllRentNumbersAsync(account.ApiKey, userToken);
 
             var viewModel = new RentNumberViewModel
             {
@@ -103,7 +103,7 @@ namespace SMSPools_App.Controllers
             {
                 return Json(new { success = false, message = "Account not found" });
             }
-            var orders = await _smsApiService.GetAlRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
+            var orders = await _smsApiService.GetAllRentNumbersAsync(account.ApiKey, userToken) ?? new List<SmsOrderResponse>();
             var userOrders = orders.Where(o => o.UserToken == userToken).ToList();
 
             int count = userOrders.Count;
@@ -169,16 +169,16 @@ namespace SMSPools_App.Controllers
         {
             var account = _accountService.GetAccountById(id);
 
-			var orders = await _smsApiService.GetAllOrdersAsync(account.ApiKey);
+            var orders = await _smsApiService.GetAllOrdersAsync(account.ApiKey);
 
-			if (!orders.All(o => o.TimeLeft < 500))
-			{
-				return Json(new { success = false, message = "Some orders have more than 5 minutes remaining. Cancel not allowed." });
-			}
+            if (!orders.All(o => o.TimeLeft < 500))
+            {
+                return Json(new { success = false, message = "Some orders have more than 5 minutes remaining. Cancel not allowed." });
+            }
 
-			var success = await _smsApiService.CancelAllOrdersAsync(account.ApiKey);
+            var success = await _smsApiService.CancelAllOrdersAsync(account.ApiKey);
 
-			return Json(new
+            return Json(new
             {
                 success = success,
                 message = success ? "All orders cancelled successfully." : "All orders have already been cancelled."

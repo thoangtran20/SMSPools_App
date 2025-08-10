@@ -186,8 +186,6 @@
     </div>
 </div>
 
-@* <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
- *@
 @section Scripts {
     <script>
         let allOrders = [];
@@ -295,7 +293,6 @@
                     orderMap[cleanId] = cleanId;
                 }
             });
-
             localStorage.setItem("orderMap", JSON.stringify(orderMap));
         }
 
@@ -531,16 +528,13 @@
                             $("#phoneNumber").val(res.phoneNumber);
                             $("#phoneSection").show();
 
-                            const orderId = res.orderId;
-                            const orderCode = res.orderCode || orderId;
+                            const orderId = (res.orderId || "").trim();
+                            const orderCode = (res.orderCode || orderId).trim();
 
-                            const cleanCode = (orderCode || "").trim();
-                            const cleanId = (orderId || "").trim();
-
-                            if (cleanCode && cleanId) {
+                            if (orderCode && orderId) {
                                 let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
-                                orderMap[cleanCode] = cleanId;
-                                orderMap[cleanId] = cleanId;
+                                orderMap[orderCode] = orderId;
+                                orderMap[orderId] = orderId; // Backup mapping
                                 localStorage.setItem("orderMap", JSON.stringify(orderMap));
                             }
 
@@ -698,11 +692,13 @@
             $(document).on('click', '.refund-btn', function () {
                 const orderCode = $(this).data("ordercode");
                 console.log("Order code: ", orderCode);
-                let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
                 let orderId = $(this).data("orderid");
+                let orderMap = JSON.parse(localStorage.getItem("orderMap") || "{}");
 
                 console.log("Order map orderCode: ", orderMap[orderCode]);
                 console.log("Order map orderId: ", orderMap[orderCode]);
+
+                console.log("Order map:", orderMap);
 
                 if (!orderId && orderMap[orderCode]) {
                     orderId = orderMap[orderCode];
