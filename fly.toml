@@ -7,6 +7,7 @@ app = 'getsideline'
 primary_region = 'sin'
 
 [build]
+  git_ref = "master"
 
 [http_service]
   internal_port = 8080
@@ -15,6 +16,13 @@ primary_region = 'sin'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 1433
+
+  [[services.ports]]
+    port = 1433
 
 [[vm]]
   memory = '1gb'
