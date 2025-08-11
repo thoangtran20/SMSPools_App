@@ -14,142 +14,12 @@ namespace SMSPools_App.Services
             return new OrderTokenStorePerAccount(apiKey, userToken);
         }
 
-
         public SmsApiService()
         {
             //_tokenStore = tokenStore;
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("https://api.smspool.net/");
         }
-
-        //public async Task<SmsOrderResponse?> RentNumberAsync(string apiKey, string userToken)
-        //{
-        //    var requestUrl = "https://api.smspool.net/purchase/sms";
-        //    var tokenStore = GetTokenStore(apiKey, userToken);
-
-        //    var parameters = new Dictionary<string, string>
-        //    {
-        //        { "key", apiKey },
-        //        { "country", "1" },
-        //        { "service", "828" },
-        //        { "pricing_option", "1" },
-        //        { "quantity", "1" },
-        //        { "areacode", "" },
-        //        { "exclude", "" },
-        //        { "create_token", "0" },
-        //        { "activation_type", "SMS" }
-        //    };
-
-        //    const int maxAttempts = 5;
-        //    int blockedCount = 0;
-        //    List<string> blockedNumbers = new();
-
-        //    for (int i = 0; i < maxAttempts; i++)
-        //    {
-        //        using var content = new FormUrlEncodedContent(parameters);
-        //        var response = await _httpClient.PostAsync(requestUrl, content);
-        //        var json = await response.Content.ReadAsStringAsync();
-
-        //        Console.WriteLine("JSON RESPONSE: " + json);
-
-        //        if (json.Contains("too many failed purchases"))
-        //        {
-        //            return new SmsOrderResponse
-        //            {
-        //                ErrorMessage = "Too many failed purchases. Please try again in 6 hours.",
-        //                Country = parameters["country"],
-        //                Service = parameters["service"],
-        //                UserToken = userToken
-        //            };
-        //        }
-
-        //        if (json.Contains("Insufficient balance"))
-        //        {
-        //            return new SmsOrderResponse
-        //            {
-        //                ErrorMessage = "Insufficient balance. Please top up.",
-        //                Country = parameters["country"],
-        //                Service = parameters["service"],
-        //                UserToken = userToken
-        //            };
-        //        }
-
-        //        try
-        //        {
-        //            var order = JsonSerializer.Deserialize<SmsOrderResponse>(json);
-        //            if (order != null && !string.IsNullOrEmpty(order.PhoneNumber))
-        //            {
-        //                if (!PhoneNumberHelper.IsBlockedNumber(order.PhoneNumber))
-        //                {
-        //                    var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
-        //                    if (!string.IsNullOrEmpty(key))
-        //                    {
-        //                        tokenStore.Save(key, userToken);
-        //                        order.UserToken = userToken;
-        //                    }
-        //                    Console.WriteLine($"Success after {i + 1} tries. Blocked count: {blockedCount}");
-        //                    return order;
-        //                }
-        //                else
-        //                {
-        //                    if (!string.IsNullOrEmpty(order.OrderId))
-        //                    {
-        //                        bool refunded = await RefundOrderAsync(order.OrderId, apiKey);
-        //                        Console.WriteLine($"[AutoRefund] Blocked number {order.PhoneNumber} (OrderId={order.OrderId}) refunded={refunded}");
-        //                    }
-
-        //                    blockedNumbers.Add(order.PhoneNumber);
-        //                    blockedCount++;
-        //                    Console.WriteLine($"Blocked number detected: {order.PhoneNumber}. Retrying...");
-        //                    await Task.Delay(700);
-        //                    continue;
-        //                }
-        //            }
-        //        }
-        //        catch (Exception ex1)
-        //        {
-        //            Console.WriteLine("Failed to parse as single object: " + ex1.Message);
-        //            try
-        //            {
-        //                var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
-        //                if (orders != null)
-        //                {
-        //                    foreach (var ord in orders)
-        //                    {
-        //                        if (string.IsNullOrEmpty(ord.PhoneNumber) || PhoneNumberHelper.IsBlockedNumber(ord.PhoneNumber))
-        //                        {
-        //                            Console.WriteLine($"Blocked or invalid number in list: {ord.PhoneNumber}. Skipping...");
-        //                            blockedNumbers.Add(ord.PhoneNumber);
-        //                            blockedCount++;
-        //                            continue;
-        //                        }
-
-        //                        tokenStore.Save(ord.OrderId, userToken);
-        //                        ord.UserToken = userToken;
-        //                        Console.WriteLine($"Success (list) after {i + 1} tries. Blocked count: {blockedCount}");
-        //                        return ord;
-        //                    }
-        //                }
-        //            }
-        //            catch (Exception ex2)
-        //            {
-        //                Console.WriteLine("Failed to parse as list: " + ex2.Message);
-        //                Console.WriteLine("Raw JSON: " + json);
-        //            }
-        //        }
-        //    }
-
-        //    Console.WriteLine($"RentNumber failed after {maxAttempts} attempts. Blocked count: {blockedCount}");
-        //    Console.WriteLine("Blocked numbers:");
-        //    foreach (var num in blockedNumbers)
-        //    {
-        //        Console.WriteLine(num);
-        //    }
-
-        //    return null;
-        //}
-
-
         public async Task<SmsOrderResponse?> RentNumberAsync(string apiKey, string userToken)
         {
             const string requestUrl = "https://api.smspool.net/purchase/sms";
@@ -198,10 +68,9 @@ namespace SMSPools_App.Services
                                 await RefundOrderAsync(order.OrderId, apiKey);
 
                             await Task.Delay(700);
-                            continue; // thử thuê lại
+                            continue;
                         }
 
-                        // Nếu số hợp lệ thì lưu lại vào tokenStore
                         if (!string.IsNullOrEmpty(order.OrderId))
                             tokenStore.Save(order.OrderId, userToken);
 
@@ -312,48 +181,6 @@ namespace SMSPools_App.Services
 
         }
 
-        //public async Task<List<SmsOrderResponse>> GetAlRentNumbersAsync(string apiKey, string userToken)
-        //{
-        //    var url = "https://api.smspool.net/request/orders_new";
-        //    var tokenStore = GetTokenStore(apiKey, userToken);
-
-        //    var content = new FormUrlEncodedContent(new Dictionary<string, string>
-        //    {
-        //        { "key", apiKey },
-        //        { "country", "1" },
-        //        { "service", "828" }
-        //    });
-
-        //    using var httpClient = new HttpClient();
-        //    var response = await httpClient.PostAsync(url, content);
-
-        //    if (!response.IsSuccessStatusCode)
-        //        return new List<SmsOrderResponse>();
-
-        //    var json = await response.Content.ReadAsStringAsync();
-        //    Console.WriteLine("RENTED NUMBERS JSON: " + json);
-
-        //    var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json);
-        //    if (orders != null)
-        //    {
-        //        orders = orders.Where(o => !PhoneNumberHelper.IsBlockedNumber(o.PhoneNumber)).ToList();
-
-        //        foreach (var order in orders)
-        //        {
-        //            var key = !string.IsNullOrEmpty(order.OrderCode) ? order.OrderCode : order.OrderId;
-        //            if (!string.IsNullOrEmpty(key))
-        //            {
-        //                var token = tokenStore.GetUserToken(key);
-        //                if (!string.IsNullOrEmpty(token))
-        //                {
-        //                    order.UserToken = token;
-        //                }
-        //            }
-        //        }
-        //    }
-        //    return orders?.Where(o => o.UserToken == userToken).ToList() ?? new List<SmsOrderResponse>();
-        //}
-
         public async Task<List<SmsOrderResponse>> GetAllRentNumbersAsync(string apiKey, string userToken)
         {
             var url = "https://api.smspool.net/request/orders_new";
@@ -377,13 +204,10 @@ namespace SMSPools_App.Services
 
             var orders = JsonSerializer.Deserialize<List<SmsOrderResponse>>(json) ?? new List<SmsOrderResponse>();
 
-            // Chỉ lọc số trống, không lọc block ở đây (block đã refund ở RentNumberAsync)
             orders = orders
                 .Where(o => !string.IsNullOrWhiteSpace(o.EffectiveOrderId) && !string.IsNullOrWhiteSpace(o.PhoneNumber))
                 .ToList();
 
-
-            // Gán lại token cho order
             foreach (var order in orders)
             {
                 var key = order.EffectiveOrderId;
@@ -394,8 +218,6 @@ namespace SMSPools_App.Services
                         order.UserToken = token;
                 }
             }
-
-            // Chỉ trả về số thuộc user này
             return orders.Where(o => string.IsNullOrEmpty(o.UserToken) || o.UserToken == userToken).ToList();
         }
         public async Task<bool> RefundOrderAsync(string orderId, string apiKey)
@@ -489,36 +311,6 @@ namespace SMSPools_App.Services
             return false;
         }
 
-        //public async Task RefundBlockedNumbersAsync(string apiKey)
-        //{
-        //    var allOrders = await GetAllOrdersAsync(apiKey);
-
-        //    if (allOrders == null || allOrders.Count == 0)
-        //    {
-        //        Console.WriteLine("Not order to handle.");
-        //        return;
-        //    }
-
-        //    var blockedOrders = allOrders
-        //        .Where(o => PhoneNumberHelper.IsBlockedNumber(o.PhoneNumber))
-        //        .ToList();
-
-        //    Console.WriteLine($"Find {blockedOrders.Count} blocked numbers.");
-
-        //    foreach (var blockedOrder in blockedOrders)
-        //    {
-        //        bool refundResult = await RefundOrderAsync(blockedOrder.OrderId, apiKey);
-
-        //        if (refundResult)
-        //            Console.WriteLine($"Refund order {blockedOrder.OrderId} ({blockedOrder.PhoneNumber}) successfully");
-        //        else
-        //            Console.WriteLine($"Refund fail for order {blockedOrder.OrderId} ({blockedOrder.PhoneNumber})");
-
-        //        // Tránh spam API
-        //        await Task.Delay(2000);
-        //    }
-        //}
-
         public async Task RefundBlockedNumbersAsync(string apiKey)
         {
             var allOrders = await GetAllOrdersAsync(apiKey);
@@ -529,7 +321,6 @@ namespace SMSPools_App.Services
                 return;
             }
 
-            // Chỉ lấy số có PhoneNumber và bị block
             var blockedOrders = allOrders
                 .Where(o =>
                     !string.IsNullOrEmpty(o.PhoneNumber) &&
@@ -555,7 +346,6 @@ namespace SMSPools_App.Services
                 else
                     Console.WriteLine($"Refund failed for order {blockedOrder.OrderId} ({blockedOrder.PhoneNumber})");
 
-                // Tránh spam API
                 await Task.Delay(2000);
             }
         }

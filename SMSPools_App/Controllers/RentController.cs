@@ -2,6 +2,7 @@
 using SMSPools_App.Models;
 using SMSPools_App.Services;
 using SMSPools_App.Services.Interfaces;
+using System.Text.Json;
 
 namespace SMSPools_App.Controllers
 {
@@ -45,24 +46,37 @@ namespace SMSPools_App.Controllers
                 return Json(new { success = false, message = "Account not found" });
             }
 
-            var order = await _smsApiService.RentNumberAsync(account.ApiKey, userToken);
-            Console.WriteLine("RECEIVED userToken: " + userToken);
+			try
+			{
+				var order = await _smsApiService.RentNumberAsync(account.ApiKey, userToken);
+				Console.WriteLine("RentNumberAsync result: " + JsonSerializer.Serialize(order));
 
-            if (order == null || !string.IsNullOrEmpty(order.ErrorMessage))
-            {
-                return Json(new { success = false, message = order?.ErrorMessage ?? "Failed to rent number" });
-            }
+				if (order == null)
+				{
+					return Json(new { success = false, message = "No response from SMS API" });
+				}
 
-            return Json(new
-            {
-                success = true,
-                phoneNumber = order.PhoneNumber,
-                orderId = order.OrderId,
-                country = order.Country,
-                service = order.Service,
-                userToken = userToken
-            });
-        }
+				if (!string.IsNullOrEmpty(order.ErrorMessage))
+				{
+					return Json(new { success = false, message = order.ErrorMessage });
+				}
+
+				return Json(new
+				{
+					success = true,
+					phoneNumber = order.PhoneNumber,
+					orderId = order.OrderId,
+					country = order.Country,
+					service = order.Service,
+					userToken = userToken
+				});
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("RentNumber Exception: " + ex.Message);
+				return Json(new { success = false, message = "Exception: " + ex.Message });
+			}
+		}
 
         [HttpPost]
         public async Task<IActionResult> GetOtp(string id, string orderId)

@@ -433,7 +433,7 @@
             });
 
             $("form").on("submit", function (e) {
-                e.preventDefault(); // Prevent form submission
+                e.preventDefault();
             });
 
             $("#rentBtn").on("click", function () {
@@ -524,7 +524,8 @@
             function rentOneNumber(id, token) {
                 return new Promise((resolve, reject) => {
                     $.post('@Url.Action("RentNumber", "Rent")', { id: id, userToken: token }, function (res) {
-                        if (res.success) {
+                        console.log("rentOneNumber response:", res);
+                        if (res.success) {  
                             $("#phoneNumber").val(res.phoneNumber);
                             $("#phoneSection").show();
 
