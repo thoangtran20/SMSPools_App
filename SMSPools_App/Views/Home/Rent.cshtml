@@ -206,9 +206,16 @@
             if (!token) {
                 token = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
                 localStorage.setItem("userToken", token);
+                console.log("Created new userToken:", token);
+            } else {
+                console.log("Existing userToken:", token);
             }
             return token;
         }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            getUserToken();
+        });
 
         function reloadOrders() {
             const id = $("#accountId").val();
