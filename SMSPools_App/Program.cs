@@ -18,24 +18,29 @@ builder.Services.AddControllersWithViews().AddRazorRuntimeCompilation();
 
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 
-var machineName = Environment.MachineName;
-string connectionString = $"Server={machineName}\\SQLEXPRESS;Database=SMSPools;Trusted_Connection=True;TrustServerCertificate=True;";
+//var machineName = Environment.MachineName;
+//string connectionString = $"Server={machineName}\\SQLEXPRESS;Database=SMSPools;Trusted_Connection=True;TrustServerCertificate=True;";
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+//string connectionString = "Server=getsideline.ddns.net,1433;Database=SMSPools;User Id=smsuser;Password=thoang2410@;TrustServerCertificate=True;Encrypt=False;";
 
-builder.Services.AddScoped<IEmailSender, EmailSender>();
-
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Account/Login";  // Redirect here if not authenticated
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
-        options.LogoutPath = "/Account/Logout";
-        options.AccessDeniedPath = "/Account/AccessDenied"; // Optional
-    });
+//string connectionString = "Server=DESKTOP-QVVRU0U;Database=SMSPools;User Id=smsuser;Password=thoang2410@;Trusted_Connection=True;TrustServerCertificate=True;";
 
 
+//builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//	options.UseSqlServer(connectionString, sqlOptions =>
+//		sqlOptions.EnableRetryOnFailure()
+//	));
+
+//builder.Services.AddScoped<IEmailSender, EmailSender>();
+
+//builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+//    .AddCookie(options =>
+//    {
+//        options.LoginPath = "/Account/Login";  // Redirect here if not authenticated
+//        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+//        options.LogoutPath = "/Account/Logout";
+//        options.AccessDeniedPath = "/Account/AccessDenied"; // Optional
+//    });
 
 var app = builder.Build();
 
@@ -52,7 +57,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseAuthorization();
+//app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
