@@ -205,7 +205,8 @@ namespace SMSPools_App.Services
 
             orders = orders
                 .Where(o => !string.IsNullOrWhiteSpace(o.EffectiveOrderId) && !string.IsNullOrWhiteSpace(o.PhoneNumber))
-                .ToList();
+				.Where(o => !PhoneNumberHelper.IsBlockedNumber(o.PhoneNumber))
+				.ToList();
 
             foreach (var order in orders)
             {

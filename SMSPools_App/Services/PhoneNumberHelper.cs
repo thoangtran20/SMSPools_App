@@ -15,10 +15,10 @@ namespace SMSPools_App.Services
                 digitsOnly = digitsOnly.Substring(1);
             }
 
-            if (digitsOnly.Length < 3)
-            {
-                Console.WriteLine($"[BlockCheck] {phoneNumber} => Too short");
-                return true;
+			if (digitsOnly.Length != 10)
+			{
+				Console.WriteLine($"[BlockCheck] {phoneNumber} => Too short");
+                return false;
             }
             string prefix = digitsOnly.Substring(0, 3);
             bool isBlocked = BlockedPrefixes.Blocked.Contains(prefix);

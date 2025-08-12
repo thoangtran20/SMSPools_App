@@ -60,7 +60,7 @@
                     </button>
                 </div>
             </div>
-            <div class="row mt-2">
+            <div class="row mt-3">
                 <div class="col-md-6 d-flex">
                     <input type="text" id="searchInput" class="form-control" placeholder="Search..." style="width: 350px;" />
                     <button id="clearSearchBtn" class="btn btn-secondary fw-bold">Clear</button>
@@ -231,9 +231,12 @@
 
                     if (allOrders.length > 0) {
                         $("#downloadBtn").prop("disabled", false);
+                        $("#clearAllBtn").prop("disabled", false);
                     } else {
                         $("#downloadBtn").prop("disabled", true);
+                        $("#clearAllBtn").prop("disabled", true);
                     }
+
                     if (isFiltering) {
                         const keyword = $("#searchInput").val().toLowerCase().trim();
                         filterOrders(keyword);
@@ -266,8 +269,10 @@
 
                     if (fullOrders.length > 0) {
                         $("#downloadBtn").prop("disabled", false);
+                        $("#clearAllBtn").prop("disabled", false);
                     } else {
                         $("#downloadBtn").prop("disabled", true);
+                        $("#clearAllBtn").prop("disabled", true);
                     }
                     isFilteringFromSMS = true;
                     if (isFilteringFromSMS) {
@@ -307,6 +312,7 @@
         $(document).ready(function () {
             const userToken = getUserToken();
             const id = $("#accountId").val().trim();
+            $("#clearAllBtn").prop("disabled", true);
             $("#downloadBtn").prop("disabled", true);
             const orderMap = {}
             let lastKeyword = "";
@@ -418,12 +424,24 @@
             $("#clearSearchBtn").click(function () {
                 resetInputs();
                 $("#searchInput").val('');
+                $("#globalSearchInput").val('');
+
                 $("#globalSearchInput").prop('disabled', false);
                 $('#globalClearSearchBtn').prop('disabled', false);
+
+                const wasFilteringFromSMS = isFilteringFromSMS;
+
                 isFiltering = false;
                 isFilteringFromSMS = false;
                 currentPage = 1;
-                reloadOrders();
+                //reloadOrders();
+
+                if (wasFilteringFromSMS) {
+                    reloadFullOrders();
+                } else {
+                    reloadOrders();
+                }
+
                 renderTablePage(currentPage);
             });
 
@@ -861,7 +879,7 @@
                         statusBadge = '<span class="badge badge-success" style="font-size: 14px;">Completed</span>';
                         break;
                     case "activating":
-                        statusBadge = '<span class="badge badge-info" style="font-size: 14px;">Awaiting</span>';
+                        statusBadge = '<span class="badge badge-info" style="font-size: 14px;">Activating</span>';
                         break;
                     case "expired":
                         statusBadge = '<span class="badge badge-danger" style="font-size: 14px;">Expired</span>';
