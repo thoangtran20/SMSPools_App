@@ -11,30 +11,12 @@ namespace SMSPools_App.Controllers
     {
         private readonly SmsAccountService _smsAccountService;
         private readonly ISmsApiService _smsApiService;
-        //private readonly ApplicationDbContext _context;
 
         public HomeController(IWebHostEnvironment env, ISmsApiService smsApiService)
         {
             _smsAccountService = new SmsAccountService(env);
             _smsApiService = smsApiService;
-            //_context = context;
         }
-
-        [HttpGet]
-        //public IActionResult CheckUserTokenRegistered(string userToken)
-        //{
-        //    if (string.IsNullOrEmpty(userToken))
-        //        return Json(new { registered = false });
-
-        //    var entry = _context.UserTokenEntries
-        //        .FirstOrDefault(u => u.UserToken == userToken && u.IsRegistered);
-
-        //    bool registered = entry != null;
-
-        //    bool isAuthenticated = User.Identity.IsAuthenticated;
-
-        //    return Json(new { registered, isAuthenticated });
-        //}
 
         public IActionResult Index()
         {
@@ -42,7 +24,6 @@ namespace SMSPools_App.Controllers
             return View(accounts);
         }
 
-        //[Authorize]
         public async Task<IActionResult> Rent(string id, string userToken)
         {
             var account = _smsAccountService.GetAccountById(id);

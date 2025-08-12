@@ -16,7 +16,6 @@ namespace SMSPools_App.Services
 
         public SmsApiService()
         {
-            //_tokenStore = tokenStore;
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri("https://api.smspool.net/");
         }

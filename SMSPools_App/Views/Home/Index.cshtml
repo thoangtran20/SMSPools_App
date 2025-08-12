@@ -28,11 +28,12 @@ else
                e.preventDefault();
 
                const id = $(this).data('id');
-               const userToken = localStorage.getItem('userToken');
+               let userToken = localStorage.getItem('userToken');
 
                if (!userToken) {
-                   toastr.warning("Missing user token!");
-                   return;
+                   userToken = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
+                   localStorage.setItem('userToken', userToken);
+                   console.log("Created new userToken:", userToken);
                }
 
                const url = `/Home/Rent?id=${id}&userToken=${encodeURIComponent(userToken)}`;
